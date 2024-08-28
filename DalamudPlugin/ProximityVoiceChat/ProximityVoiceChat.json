@@ -1,0 +1,13 @@
+{
+  "Author": "Ricimon",
+  "Name": "ProximityVoiceChat",
+  "Punchline": "Talk to your party members with proximity voice chat during raids!",
+  "Description": "A voice-chat plugin with character proximity detection.",
+  "RepoUrl": "https://github.com/Ricimon/FFXIV-ProximityVoiceChat",
+  "InternalName": "proximityVoiceChat",
+  "ApplicableVersion": "any",
+  "Tags": [
+    "proximity",
+    "vc"
+  ]
+}

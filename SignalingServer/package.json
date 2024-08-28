@@ -1,0 +1,28 @@
+{
+    "name": "signaling-server",
+    "version": "0.0.1",
+    "description": "The signaling server for FFXIV-ProximityVoiceChat",
+    "main": "server.js",
+    "author": "Ricimon",
+    "license": "MIT",
+    "scripts": {
+        "start": "env-cmd -f ./config/prod.env node server.js",
+        "dev": "env-cmd -f ./config/dev.env nodemon server.js",
+        "client1": "nodemon ./examples/example-client1.js",
+        "client2": "nodemon ./examples/example-client2.js"
+    },
+    "dependencies": {
+        "cors": "^2.8.5",
+        "env-cmd": "^10.1.0",
+        "express": "^4.19.2",
+        "sirv": "^2.0.4",
+        "socket.io": "^4.7.5",
+        "socket.io-client": "^4.7.5"
+    },
+    "devDependencies": {
+        "nodemon": "^3.1.4"
+    },
+    "engines": {
+        "node": ">=14.x"
+    }
+}

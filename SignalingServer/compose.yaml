@@ -1,0 +1,13 @@
+services:
+  app:
+    image: node
+    user: "node"
+    working_dir: /home/node/app
+    restart: unless-stopped
+    expose:
+      - "3030"
+    ports:
+      - "3030:3030"
+    volumes:
+      - ./:/home/node/app
+    command: "npm start"

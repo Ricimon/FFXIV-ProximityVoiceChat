@@ -194,11 +194,26 @@ public class AudioDeviceController : IDisposable
         });
     }
 
-    public void AddPlaybackSample(string channelName, WaveInEventArgs sample, float volume)
+    public void AddPlaybackSample(string channelName, WaveInEventArgs sample)
     {
         if (this.playbackChannels.TryGetValue(channelName, out var channel))
         {
             channel.BufferedWaveProvider.AddSamples(sample.Buffer, 0, sample.BytesRecorded);
+        }
+    }
+
+    public void ResetAllChannelsVolume()
+    {
+        foreach(var channel in this.playbackChannels)
+        {
+            channel.Value.VolumeSampleProvider.Volume = 1.0f;
+        }
+    }
+
+    public void SetChannelVolume(string channelName, float volume)
+    {
+        if (this.playbackChannels.TryGetValue(channelName, out var channel))
+        {
             channel.VolumeSampleProvider.Volume = volume;
         }
     }

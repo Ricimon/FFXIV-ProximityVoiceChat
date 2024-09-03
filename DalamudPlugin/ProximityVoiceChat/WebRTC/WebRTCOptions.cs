@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace ProximityVoiceChat.WebRTC;
+﻿namespace ProximityVoiceChat.WebRTC;
 
 public class WebRTCOptions
 {

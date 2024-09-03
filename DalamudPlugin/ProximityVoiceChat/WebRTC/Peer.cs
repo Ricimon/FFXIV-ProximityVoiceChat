@@ -1,5 +1,4 @@
 ﻿using Microsoft.MixedReality.WebRTC;
-using SIPSorcery.Net;
 
 namespace ProximityVoiceChat.WebRTC;
 public class Peer

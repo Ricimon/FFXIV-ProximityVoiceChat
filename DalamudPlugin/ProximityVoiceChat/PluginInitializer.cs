@@ -1,10 +1,12 @@
 ﻿using Dalamud.IoC;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
+using Microsoft.MixedReality.WebRTC;
 using Ninject;
 using Ninject.Extensions.Factory;
 using ProximityVoiceChat.Log;
 using ProximityVoiceChat.Ninject;
+using System.Runtime.InteropServices;
 
 namespace ProximityVoiceChat;
 
@@ -29,6 +31,9 @@ public sealed class PluginInitializer : IDalamudPlugin
 
     public PluginInitializer()
     {
+        // For whatever reason this is needed to load Windows MixedReality-WebRTC
+        NativeLibrary.SetDllImportResolver(typeof(PeerConnection).Assembly, (_, assembly, path) => NativeLibrary.Load("mrwebrtc.dll", assembly, path));
+
         this.kernel = new StandardKernel(new PluginModule(), new FuncModule());
 
         // Logging

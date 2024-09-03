@@ -49,6 +49,9 @@ public class MainWindow : Window, IMainWindow, IDisposable
     public IReactiveProperty<int> MinimumVisibleLogLevel { get; init; }
         = new ReactiveProperty<int>(mode: ReactivePropertyMode.DistinctUntilChanged);
 
+    private string[]? inputDevices;
+    private string[]? outputDevices;
+
     private readonly WindowSystem windowSystem;
     private readonly AudioDeviceController audioDeviceController;
     private readonly VoiceRoomManager voiceRoomManager;
@@ -85,6 +88,9 @@ public class MainWindow : Window, IMainWindow, IDisposable
     public void Dispose()
     {
         windowSystem.RemoveWindow(this);
+        inputDevices = null;
+        outputDevices = null;
+        GC.SuppressFinalize(this);
     }
 
     private void DrawContents()
@@ -99,10 +105,9 @@ public class MainWindow : Window, IMainWindow, IDisposable
             ImGui.AlignTextToFramePadding();
             ImGui.Text("Input Device"); ImGui.TableNextColumn();
             //ImGui.SetNextItemWidth(ImGui.GetColumnWidth() - rightPad);
-            var inputDevices = this.audioDeviceController.GetAudioRecordingDevices();
-            //inputDevices = inputDevices.Prepend("Default");
+            this.inputDevices ??= this.audioDeviceController.GetAudioRecordingDevices().ToArray();
             var inputDeviceIndex = this.SelectedAudioInputDeviceIndex.Value + 1;
-            if (ImGui.Combo("##InputDevice", ref inputDeviceIndex, inputDevices.ToArray(), inputDevices.Count()))
+            if (ImGui.Combo("##InputDevice", ref inputDeviceIndex, this.inputDevices, this.inputDevices.Length))
             {
                 this.SelectedAudioInputDeviceIndex.Value = inputDeviceIndex - 1;
             }
@@ -110,10 +115,9 @@ public class MainWindow : Window, IMainWindow, IDisposable
             ImGui.TableNextRow(); ImGui.TableNextColumn();
             ImGui.AlignTextToFramePadding();
             ImGui.Text("Output Device"); ImGui.TableNextColumn();
-            var outputDevices = this.audioDeviceController.GetAudioPlaybackDevices();
-            //outputDevices.Insert(0, "Default");
+            this.outputDevices ??= this.audioDeviceController.GetAudioPlaybackDevices().ToArray();
             var outputDeviceIndex = this.SelectedAudioOutputDeviceIndex.Value + 1;
-            if (ImGui.Combo("##OutputDevice", ref outputDeviceIndex, outputDevices.ToArray(), outputDevices.Count()))
+            if (ImGui.Combo("##OutputDevice", ref outputDeviceIndex, this.outputDevices, this.outputDevices.Length))
             {
                 this.SelectedAudioOutputDeviceIndex.Value = outputDeviceIndex - 1;
             }

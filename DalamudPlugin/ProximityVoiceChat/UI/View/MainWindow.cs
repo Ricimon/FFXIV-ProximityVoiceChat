@@ -21,8 +21,8 @@ public class MainWindow : Window, IMainWindow, IDisposable
         set => this.visible = value;
     }
 
-    public IReactiveProperty<int> SelectedAudioInputDeviceIndex { get; init; } = new ReactiveProperty<int>();
-    public IReactiveProperty<int> SelectedAudioOutputDeviceIndex { get; init; } = new ReactiveProperty<int>();
+    public IReactiveProperty<int> SelectedAudioInputDeviceIndex { get; init; } = new ReactiveProperty<int>(-1);
+    public IReactiveProperty<int> SelectedAudioOutputDeviceIndex { get; init; } = new ReactiveProperty<int>(-1);
 
     public IReactiveProperty<bool> PlayingBackMicAudio { get; init; } = new ReactiveProperty<bool>();
 
@@ -100,9 +100,9 @@ public class MainWindow : Window, IMainWindow, IDisposable
             ImGui.Text("Input Device"); ImGui.TableNextColumn();
             //ImGui.SetNextItemWidth(ImGui.GetColumnWidth() - rightPad);
             var inputDevices = this.audioDeviceController.GetAudioRecordingDevices();
-            inputDevices.Insert(0, "Default");
+            //inputDevices = inputDevices.Prepend("Default");
             var inputDeviceIndex = this.SelectedAudioInputDeviceIndex.Value + 1;
-            if (ImGui.Combo("##InputDevice", ref inputDeviceIndex, inputDevices.ToArray(), inputDevices.Count))
+            if (ImGui.Combo("##InputDevice", ref inputDeviceIndex, inputDevices.ToArray(), inputDevices.Count()))
             {
                 this.SelectedAudioInputDeviceIndex.Value = inputDeviceIndex - 1;
             }
@@ -111,9 +111,9 @@ public class MainWindow : Window, IMainWindow, IDisposable
             ImGui.AlignTextToFramePadding();
             ImGui.Text("Output Device"); ImGui.TableNextColumn();
             var outputDevices = this.audioDeviceController.GetAudioPlaybackDevices();
-            outputDevices.Insert(0, "Default");
+            //outputDevices.Insert(0, "Default");
             var outputDeviceIndex = this.SelectedAudioOutputDeviceIndex.Value + 1;
-            if (ImGui.Combo("##OutputDevice", ref outputDeviceIndex, outputDevices.ToArray(), outputDevices.Count))
+            if (ImGui.Combo("##OutputDevice", ref outputDeviceIndex, outputDevices.ToArray(), outputDevices.Count()))
             {
                 this.SelectedAudioOutputDeviceIndex.Value = outputDeviceIndex - 1;
             }

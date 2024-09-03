@@ -18,7 +18,7 @@ namespace ProximityVoiceChat.WebRTC
             {
                 public string candidate;
                 public string sdpMid;
-                public ushort sdpMLineIndex;
+                public int sdpMLineIndex;
                 public string foundation;
                 public RTCIceComponent component;
                 public uint priority;
@@ -26,9 +26,9 @@ namespace ProximityVoiceChat.WebRTC
                 public RTCIceProtocol protocol;
                 public ushort port;
                 public RTCIceCandidateType type;
-                public RTCIceTcpCandidateType tcpType;
-                public string relatedAddress;
-                public ushort relatedPort;
+                public RTCIceTcpCandidateType? tcpType;
+                public string? relatedAddress;
+                public ushort? relatedPort;
                 public string usernameFragment;
             }
 

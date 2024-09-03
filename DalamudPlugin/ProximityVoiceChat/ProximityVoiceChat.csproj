@@ -10,8 +10,7 @@
     <Copyright></Copyright>
     <PackageProjectUrl>https://github.com/Ricimon/FFXIV-ProximityVoiceChat</PackageProjectUrl>
     <IsPackable>false</IsPackable>
-    <TargetFramework>net8.0-windows10.0.17763.0</TargetFramework>
-    <SupportedOSPlatformVersion>7.0</SupportedOSPlatformVersion>
+    <TargetFramework>net8.0-windows</TargetFramework>
   </PropertyGroup>
 
   <ItemGroup>
@@ -22,21 +21,47 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="AsyncAwaitBestPractices" Version="8.0.0" />
-    <PackageReference Include="NAudio" Version="2.2.1" />
-    <PackageReference Include="Ninject" Version="3.3.6" />
-    <PackageReference Include="NLog" Version="5.3.3" />
-    <PackageReference Include="ppy.SDL2-CS" Version="1.0.82" />
-    <PackageReference Include="ReactiveProperty" Version="9.6.0" />
-    <PackageReference Include="SIPSorcery" Version="6.2.4" />
-    <PackageReference Include="SIPSorceryMedia.Encoders" Version="0.0.13" />
-    <PackageReference Include="SIPSorceryMedia.SDL2" Version="1.2.0" />
-    <PackageReference Include="SocketIOClient" Version="3.1.2" />
-    <PackageReference Include="YamlDotNet" Version="16.0.0" />
+    <Content Remove="C:\Users\ericq_000\.nuget\packages\ppy.sdl2-cs\1.0.82\contentFiles\any\netstandard2.0\app.config" />
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="AsyncAwaitBestPractices" Version="8.0.0" />
+    <PackageReference Include="Microsoft.JavaScript.NodeApi" Version="0.8.5" />
+    <PackageReference Include="Microsoft.MixedReality.WebRTC" Version="2.0.2" />
+    <PackageReference Include="mrwebrtc" Version="2.0.2" />
+    <PackageReference Include="NAudio" Version="2.2.1" />
+    <PackageReference Include="Ninject" Version="3.3.6" />
+    <PackageReference Include="Ninject.Extensions.Factory" Version="3.3.3" />
+    <PackageReference Include="NLog" Version="5.3.3" />
+    <PackageReference Include="ppy.SDL2-CS" Version="1.0.82">
+      <Aliases>ppySDL2,%(Aliases)</Aliases>
+    </PackageReference>
+    <PackageReference Include="ReactiveProperty" Version="9.6.0" />
+    <PackageReference Include="SIPSorceryMedia.Encoders" Version="0.0.13" />
+    <PackageReference Include="SIPSorceryMedia.SDL2" Version="1.2.0" />
+    <PackageReference Include="SocketIOClient" Version="3.1.2" />
+    <PackageReference Include="YamlDotNet" Version="16.1.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NodejsBridge\NodejsBridge.csproj" />
+    <ProjectReference Include="..\SIPSorcery\SIPSorcery.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="libnode.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="NodejsBridge.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="runtime\win-x64\native\mrwebrtc.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="SDL2\win32-x64\SDL2.dll">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </None>
+    <None Update="WebRTC\webrtc-manager.js">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </None>
   </ItemGroup>

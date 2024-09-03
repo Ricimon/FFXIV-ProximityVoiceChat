@@ -14,7 +14,6 @@ public class MainWindowPresenter(
     IObjectTable objectTable,
     AudioDeviceController audioInputController,
     VoiceRoomManager voiceRoomManager,
-    SoundEngine soundEngine,
     ILogger logger) : IPluginUIPresenter, IDisposable
 {
     public IPluginUIView View => this.view;
@@ -24,7 +23,6 @@ public class MainWindowPresenter(
     private readonly IObjectTable objectTable = objectTable ?? throw new ArgumentNullException(nameof(objectTable));
     private readonly AudioDeviceController audioInputController = audioInputController ?? throw new ArgumentNullException(nameof(audioInputController));
     private readonly VoiceRoomManager voiceRoomManager = voiceRoomManager ?? throw new ArgumentNullException(nameof(voiceRoomManager));
-    private readonly SoundEngine soundEngine = soundEngine ?? throw new ArgumentNullException(nameof(soundEngine));
     private readonly ILogger logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
     private readonly CompositeDisposable disposables = new();

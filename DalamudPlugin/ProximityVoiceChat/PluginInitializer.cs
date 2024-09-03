@@ -2,6 +2,8 @@
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using Ninject;
+using Ninject.Extensions.Factory;
+using ProximityVoiceChat.Log;
 using ProximityVoiceChat.Ninject;
 
 namespace ProximityVoiceChat;
@@ -27,7 +29,10 @@ public sealed class PluginInitializer : IDalamudPlugin
 
     public PluginInitializer()
     {
-        this.kernel = new StandardKernel(new PluginModule());
+        this.kernel = new StandardKernel(new PluginModule(), new FuncModule());
+
+        // Logging
+        SIPSorcery.LogFactory.Set(this.kernel.Get<DalamudLoggerFactory>());
 
         // Entrypoint
         this.kernel.Get<Plugin>().Initialize();

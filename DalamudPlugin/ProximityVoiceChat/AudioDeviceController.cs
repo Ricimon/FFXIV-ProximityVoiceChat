@@ -1,11 +1,9 @@
 ﻿using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
-using System.Linq;
+using NAudio.Wave;
+using NAudio.Wave.SampleProviders;
 using ProximityVoiceChat.Log;
-using ProximityVoiceChat.SDL2;
-using SIPSorcery.Media;
-using SIPSorceryMedia.Abstractions;
-using SIPSorceryMedia.SDL2;
 
 namespace ProximityVoiceChat;
 
@@ -20,6 +18,7 @@ public class AudioDeviceController : IDisposable
         set
         {
             this.playingBackMicAudio = value;
+            ClearPlaybackBuffers(false);
             UpdateSourceStates();
         }
     }
@@ -59,10 +58,7 @@ public class AudioDeviceController : IDisposable
                 this.configuration.Save();
 
                 DisposeAudioRecordingSource();
-                if (IsAudioRecordingSourceActive)
-                {
-                    InitializeAudioRecordingSource();
-                }
+                UpdateSourceStates();
             }
         }
     }
@@ -79,28 +75,55 @@ public class AudioDeviceController : IDisposable
                 this.configuration.SelectedAudioOutputDeviceIndex = value;
                 this.configuration.Save();
 
-                this.audioPlaybackSource?.CloseAudioSink();
-                this.audioPlaybackSource = null;
-                if (IsAudioPlaybackSourceActive)
-                {
-                    InitializeAudioPlaybackSource();
-                }
+                DisposeAudioPlaybackSource();
+                UpdateSourceStates();
             }
         }
     }
     private int audioPlaybackDeviceIndex;
 
-    public event EncodedSampleDelegate? OnAudioRecordingSourceEncodedSample;
+    public event EventHandler<WaveInEventArgs>? OnAudioRecordingSourceDataAvailable;
 
-    private SDL2.SDL2AudioSource? audioRecordingSource;
-    private SDL2.SDL2AudioEndPoint? audioPlaybackSource;
+    private class PlaybackChannel
+    {
+        public required VolumeSampleProvider VolumeSampleProvider { get; set; }
+        public required BufferedWaveProvider BufferedWaveProvider { get; set; }
+    }
 
-    // best sounding format found through testing
-    private AudioFormat AudioFormat => audioEncoder.SupportedFormats[2];
+    private WaveInEvent? audioRecordingSource;
+    private WaveOutEvent? audioPlaybackSource;
+    private bool recording;
 
-    private readonly IAudioEncoder audioEncoder = new AudioEncoder();
+    private readonly WaveFormat waveFormat = WaveFormat.CreateIeeeFloatWaveFormat(16000, 1);
+    private readonly Dictionary<string, PlaybackChannel> playbackChannels = [];
+    private readonly BufferedWaveProvider micPlaybackWaveProvider;
+    private readonly MixingSampleProvider outputSampleProvider;
     private readonly Configuration configuration;
     private readonly ILogger logger;
+
+    public static byte[] ConvertAudioSampleToByteArray(WaveInEventArgs args)
+    {
+        var newArray = new byte[args.Buffer.Length + sizeof(int)];
+        args.Buffer.CopyTo(newArray, sizeof(int));
+        BinaryPrimitives.WriteInt32BigEndian(newArray, args.BytesRecorded);
+        return newArray;
+    }
+
+    public static bool TryParseAudioSampleBytes(byte[] bytes, out WaveInEventArgs? args)
+    {
+        args = null;
+        if (bytes.Length < sizeof(int))
+        {
+            return false;
+        }
+        Span<byte> bytesSpan = bytes;
+        if (!BinaryPrimitives.TryReadInt32BigEndian(bytesSpan[..sizeof(int)], out var bytesRecorded))
+        {
+            return false;
+        }
+        args = new WaveInEventArgs(bytesSpan[sizeof(int)..].ToArray(), bytesRecorded);
+        return true;
+    }
 
     public AudioDeviceController(Configuration configuration, ILogger logger)
     {
@@ -110,107 +133,187 @@ public class AudioDeviceController : IDisposable
         this.audioRecordingDeviceIndex = configuration.SelectedAudioInputDeviceIndex;
         this.audioPlaybackDeviceIndex = configuration.SelectedAudioOutputDeviceIndex;
 
-        SDL2Helper.InitSDL();
+        this.micPlaybackWaveProvider = new BufferedWaveProvider(this.waveFormat);
+        this.outputSampleProvider = new MixingSampleProvider(this.waveFormat);
+        this.outputSampleProvider.AddMixerInput(this.micPlaybackWaveProvider);
     }
 
     public void Dispose()
     {
         DisposeAudioRecordingSource();
-        this.audioPlaybackSource?.CloseAudioSink();
-        SDL2Helper.QuitSDL();
+        DisposeAudioPlaybackSource();
+        GC.SuppressFinalize(this);
     }
 
-    public List<string> GetAudioRecordingDevices()
+    public IEnumerable<string> GetAudioRecordingDevices()
     {
-        return SDL2Helper.GetAudioRecordingDevices();
+        for (int n = -1; n < WaveIn.DeviceCount; n++)
+        {
+            var caps = WaveIn.GetCapabilities(n);
+            if (n == -1)
+            {
+                yield return "Default";
+            }
+            else
+            {
+                yield return caps.ProductName;
+            }
+        }
     }
 
-    public List<string> GetAudioPlaybackDevices()
+    public IEnumerable<string> GetAudioPlaybackDevices()
     {
-        return SDL2Helper.GetAudioPlaybackDevices();
+        for (int n = -1; n < WaveOut.DeviceCount; n++)
+        {
+            var caps = WaveOut.GetCapabilities(n);
+            if (n == -1)
+            {
+                yield return "Default";
+            }
+            else
+            {
+                yield return caps.ProductName;
+            }
+        }
     }
 
-    private void InitializeAudioRecordingSource()
+    public void CreateAudioPlaybackChannel(string channelName)
     {
-        var deviceName = this.AudioRecordingDeviceIndex >= 0 ? SDL2Helper.GetAudioRecordingDevice(this.AudioRecordingDeviceIndex) : null;
-        this.audioRecordingSource = new SDL2.SDL2AudioSource(deviceName, this.audioEncoder, this.logger);
+        if (this.playbackChannels.ContainsKey(channelName))
+        {
+            this.logger.Error("An audio playback channel already exists for channel name {0}", channelName);
+            return;
+        }
+        var bfp = new BufferedWaveProvider(this.waveFormat);
+        var vsp = new VolumeSampleProvider(bfp.ToSampleProvider());
+        this.outputSampleProvider.AddMixerInput(vsp);
+        this.playbackChannels.Add(channelName, new()
+        {
+            VolumeSampleProvider = vsp,
+            BufferedWaveProvider = bfp,
+        });
+    }
 
-        this.audioRecordingSource.OnAudioSourceEncodedSample += this.OnAudioSourceEncodedSample;
-        this.audioRecordingSource.OnAudioSourceError += this.OnAudioSourceError;
+    public void AddPlaybackSample(string channelName, WaveInEventArgs sample, float volume)
+    {
+        if (this.playbackChannels.TryGetValue(channelName, out var channel))
+        {
+            channel.BufferedWaveProvider.AddSamples(sample.Buffer, 0, sample.BytesRecorded);
+            channel.VolumeSampleProvider.Volume = volume;
+        }
+    }
 
-        // This starts the audio
-        this.audioRecordingSource.SetAudioSourceFormat(AudioFormat);
+    public void RemoveAudioPlaybackChannel(string channelName)
+    {
+        if (this.playbackChannels.TryGetValue(channelName, out var channel))
+        {
+            channel.BufferedWaveProvider.ClearBuffer();
+            this.outputSampleProvider.RemoveMixerInput(channel.VolumeSampleProvider);
+            this.playbackChannels.Remove(channelName);
+        }
+    }
+
+    private WaveInEvent GetOrCreateAudioRecordingSource()
+    {
+        if (this.audioRecordingSource == null)
+        {
+            this.audioRecordingSource = new WaveInEvent
+            {
+                DeviceNumber = this.AudioRecordingDeviceIndex,
+                WaveFormat = this.waveFormat,
+            };
+
+            this.audioRecordingSource.RecordingStopped += (object? sender, StoppedEventArgs e) =>
+            {
+                this.recording = false;
+            };
+            this.audioRecordingSource.DataAvailable += this.OnAudioSourceDataAvailable;
+
+            this.recording = false;
+        }
+        return this.audioRecordingSource;
     }
 
     private void DisposeAudioRecordingSource()
     {
         if (this.audioRecordingSource != null)
         {
-            this.audioRecordingSource.OnAudioSourceEncodedSample -= this.OnAudioSourceEncodedSample;
-            this.audioRecordingSource.OnAudioSourceError -= this.OnAudioSourceError;
-            this.audioRecordingSource.CloseAudio();
+            this.audioRecordingSource.Dispose();
             this.audioRecordingSource = null;
         }
     }
 
-    private void InitializeAudioPlaybackSource()
+    private WaveOutEvent GetOrCreateAudioPlaybackSource()
     {
-        var deviceName = this.AudioPlaybackDeviceIndex >= 0 ? SDL2Helper.GetAudioPlaybackDevice(this.AudioPlaybackDeviceIndex) : null;
-        this.audioPlaybackSource = new SDL2.SDL2AudioEndPoint(deviceName, this.audioEncoder, this.logger);
-
-        // This starts the audio
-        this.audioPlaybackSource.SetAudioSinkFormat(AudioFormat);
+        if (this.audioPlaybackSource == null)
+        {
+            this.audioPlaybackSource = new WaveOutEvent
+            {
+                DeviceNumber = this.AudioPlaybackDeviceIndex,
+                DesiredLatency = 150,
+            };
+            this.audioPlaybackSource.Init(this.outputSampleProvider);
+        }
+        return this.audioPlaybackSource;
     }
 
-    private void OnAudioSourceEncodedSample(uint durationRtpUnits, byte[] sample)
+    private void DisposeAudioPlaybackSource()
     {
-        this.logger.Trace("Audio encoded sample received. DurationRtpUnits {0}, Sample {1}", durationRtpUnits, sample);
+        if (this.audioPlaybackSource != null)
+        {
+            this.audioPlaybackSource.Dispose();
+            this.audioPlaybackSource = null;
+        }
+    }
+
+    private void OnAudioSourceDataAvailable(object? sender, WaveInEventArgs e)
+    {
+        this.logger.Trace("Audio data received from recording device: {0} bytes recorded, {1}", e.BytesRecorded, e.Buffer);
         if (this.audioPlaybackSource != null && this.PlayingBackMicAudio)
         {
-            var pcmSample = this.audioEncoder.DecodeAudio(sample, AudioFormat);
-            var pcmBytes = pcmSample.SelectMany(x => BitConverter.GetBytes(x)).ToArray();
-            this.audioPlaybackSource.GotAudioSample(pcmBytes);
+            this.micPlaybackWaveProvider.AddSamples(e.Buffer, 0, e.BytesRecorded);
         }
-        this.OnAudioRecordingSourceEncodedSample?.Invoke(durationRtpUnits, sample);
+        this.OnAudioRecordingSourceDataAvailable?.Invoke(this, e);
     }
 
-    private void OnAudioSourceError(string message)
+    private void ClearPlaybackBuffers(bool clearAll)
     {
-        this.logger.Error(message);
+        if (clearAll || this.PlayingBackMicAudio)
+        {
+            foreach(var channel in this.playbackChannels.Values)
+            {
+                channel.BufferedWaveProvider.ClearBuffer();
+            }
+        }
+        if (clearAll || !this.PlayingBackMicAudio)
+        {
+            this.micPlaybackWaveProvider.ClearBuffer();
+        }
     }
 
     private void UpdateSourceStates()
     {
         if (this.IsAudioRecordingSourceActive)
         {
-            if (this.audioRecordingSource == null)
+            if (!this.recording)
             {
-                InitializeAudioRecordingSource();
-            }
-            else
-            {
-                this.audioRecordingSource.ResumeAudio();
+                GetOrCreateAudioRecordingSource().StartRecording();
+                this.recording = true;
             }
         }
         else
         {
-            this.audioRecordingSource?.PauseAudio();
+            GetOrCreateAudioRecordingSource().StopRecording();
         }
 
         if (this.IsAudioPlaybackSourceActive)
         {
-            if (this.audioPlaybackSource == null)
-            {
-                InitializeAudioPlaybackSource();
-            }
-            else
-            {
-                this.audioPlaybackSource.ResumeAudioSink();
-            }
+            GetOrCreateAudioPlaybackSource().Play();
         }
         else
         {
-            this.audioPlaybackSource?.PauseAudioSink();
+            GetOrCreateAudioPlaybackSource().Stop();
+            ClearPlaybackBuffers(true);
         }
     }
 }

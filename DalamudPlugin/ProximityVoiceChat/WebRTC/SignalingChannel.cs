@@ -12,6 +12,9 @@ namespace ProximityVoiceChat.WebRTC;
 
 public class SignalingChannel : IDisposable
 {
+    public bool Connected => this.socket.Connected;
+
+    public event Action? OnConnected;
     public event Action<SocketIOResponse>? OnMessage;
     public event Action? OnDisconnected;
 
@@ -74,6 +77,9 @@ public class SignalingChannel : IDisposable
 
     public void Dispose()
     {
+        this.OnConnected = null;
+        this.OnMessage = null;
+        this.OnDisconnected = null;
         this.RemoveListeners();
         this.socket?.Dispose();
     }
@@ -106,20 +112,35 @@ public class SignalingChannel : IDisposable
 
     private void OnConnect(object? sender, EventArgs args)
     {
-        if (this.verbose)
+        try
         {
-            this.logger.Debug("Connected to signaling server.");
+            if (this.verbose)
+            {
+                this.logger.Debug("Connected to signaling server.");
+            }
+            this.OnConnected?.Invoke();
+            this.socket.EmitAsync("ready", this.peerId, this.peerType).SafeFireAndForget(ex => this.logger.Error(ex.ToString()));
         }
-        this.socket.EmitAsync("ready", this.peerId, this.peerType).SafeFireAndForget(ex => this.logger.Error(ex.ToString())); 
+        catch (Exception ex)
+        {
+            this.logger.Error(ex.ToString());
+        }
     }
 
     private void OnDisconnect(object? sender, string reason)
     {
-        if (this.verbose)
+        try
         {
-            this.logger.Debug("Disconnected from signaling server, reason: {0}", reason);
+            if (this.verbose)
+            {
+                this.logger.Debug("Disconnected from signaling server, reason: {0}", reason);
+            }
+            this.OnDisconnected?.Invoke();
         }
-        this.OnDisconnected?.Invoke();
+        catch (Exception ex)
+        {
+            this.logger.Error(ex.ToString());
+        }
     }
 
     private void OnError(object? sender, string error)

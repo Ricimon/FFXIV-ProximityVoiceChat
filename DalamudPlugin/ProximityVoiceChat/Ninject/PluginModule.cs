@@ -2,11 +2,13 @@
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using Ninject.Activation;
+using Ninject.Extensions.Factory;
 using Ninject.Modules;
 using ProximityVoiceChat.Log;
 using ProximityVoiceChat.UI;
 using ProximityVoiceChat.UI.Presenter;
 using ProximityVoiceChat.UI.View;
+using ProximityVoiceChat.WebRTC;
 
 namespace ProximityVoiceChat.Ninject;
 
@@ -35,7 +37,8 @@ public class PluginModule : NinjectModule
         Bind<Configuration>().ToMethod(GetConfiguration).InSingletonScope();
         Bind<AudioDeviceController>().ToSelf().InSingletonScope();
         Bind<VoiceRoomManager>().ToSelf().InSingletonScope();
-        Bind<SoundEngine>().ToSelf().InSingletonScope();
+        Bind<WebRTCDataChannelHandler>().ToSelf();
+        Bind<WebRTCDataChannelHandler.IFactory>().ToFactory();
 
         // Views and Presenters
         Bind<WindowSystem>().ToMethod(_ => new(PluginInitializer.Name)).InSingletonScope();
@@ -45,6 +48,7 @@ public class PluginModule : NinjectModule
         Bind<IPluginUIPresenter, ConfigWindowPresenter>().To<ConfigWindowPresenter>().InSingletonScope();
 
         Bind<ILogger>().To<DalamudLogger>();
+        Bind<DalamudLoggerFactory>().ToSelf();
     }
 
     private Configuration GetConfiguration(IContext context)

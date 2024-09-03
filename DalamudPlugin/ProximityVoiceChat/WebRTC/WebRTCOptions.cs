@@ -1,7 +1,9 @@
-﻿namespace ProximityVoiceChat.WebRTC;
+﻿using System;
+
+namespace ProximityVoiceChat.WebRTC;
 
 public class WebRTCOptions
 {
     public bool EnableDataChannel;
-    public WebRTCDataChannelHandler? DataChannelHandler;
+    public WebRTCDataChannelHandler.IFactory? DataChannelHandlerFactory;
 }

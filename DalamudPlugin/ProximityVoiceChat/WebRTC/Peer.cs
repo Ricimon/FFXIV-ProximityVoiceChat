@@ -1,4 +1,5 @@
-﻿using SIPSorcery.Net;
+﻿using Microsoft.MixedReality.WebRTC;
+using SIPSorcery.Net;
 
 namespace ProximityVoiceChat.WebRTC;
 public class Peer
@@ -6,8 +7,9 @@ public class Peer
     public required string PeerId;
     public required string PeerType;
     public bool Polite;
-    public required RTCPeerConnection RTCPeerConnection;
-    public required RTCDataChannel RTCDataChannel;
+    public required PeerConnection PeerConnection;
+    //public required RTCDataChannel RTCDataChannel;
+    public WebRTCDataChannelHandler? DataChannelHandler;
     public bool MakingOffer;
     public bool IgnoreOffer;
     public bool IsSettingRemoteAnswerPending;

@@ -10,4 +10,4 @@ services:
       - "3030:3030"
     volumes:
       - ./:/home/node/app
-    command: bash -c "npm ci --only=prod --no-audit && npm start"
+    command: bash -c "npm ci --omit=dev --no-audit && npm start"

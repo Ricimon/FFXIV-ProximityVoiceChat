@@ -8,6 +8,9 @@ using System.Reactive;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using ProximityVoiceChat.Log;
+using ProximityVoiceChat.UI.Util;
+using Microsoft.MixedReality.WebRTC;
+using System.Text;
 
 namespace ProximityVoiceChat.UI.View;
 
@@ -21,22 +24,25 @@ public class MainWindow : Window, IMainWindow, IDisposable
         set => this.visible = value;
     }
 
-    public IReactiveProperty<int> SelectedAudioInputDeviceIndex { get; init; } = new ReactiveProperty<int>(-1);
-    public IReactiveProperty<int> SelectedAudioOutputDeviceIndex { get; init; } = new ReactiveProperty<int>(-1);
+    public IReactiveProperty<int> SelectedAudioInputDeviceIndex { get; } = new ReactiveProperty<int>(-1);
+    public IReactiveProperty<int> SelectedAudioOutputDeviceIndex { get; } = new ReactiveProperty<int>(-1);
 
-    public IReactiveProperty<bool> PlayingBackMicAudio { get; init; } = new ReactiveProperty<bool>();
+    public IReactiveProperty<bool> PlayingBackMicAudio { get; } = new ReactiveProperty<bool>();
 
     private readonly ISubject<Unit> joinVoiceRoom = new Subject<Unit>();
     public IObservable<Unit> JoinVoiceRoom => joinVoiceRoom.AsObservable();
     private readonly ISubject<Unit> leaveVoiceRoom = new Subject<Unit>();
     public IObservable<Unit> LeaveVoiceRoom => leaveVoiceRoom.AsObservable();
 
-    private readonly ISubject<Unit> logAllGameObjects = new Subject<Unit>();
-    public IObservable<Unit> LogAllGameObjects => logAllGameObjects.AsObservable();
+    public IReactiveProperty<AudioFalloffModel.FalloffType> AudioFalloffType { get; } = new ReactiveProperty<AudioFalloffModel.FalloffType>();
+    public IReactiveProperty<float> AudioFalloffMinimumDistance { get; } = new ReactiveProperty<float>();
+    public IReactiveProperty<float> AudioFalloffMaximumDistance { get; } = new ReactiveProperty<float>();
+    public IReactiveProperty<float> AudioFalloffFactor { get; } = new ReactiveProperty<float>();
+    public IReactiveProperty<bool> MuteDeadPlayers { get; } = new ReactiveProperty<bool>();
 
-    public IReactiveProperty<string> AliveStateSourceName { get; init; }
+    public IReactiveProperty<string> AliveStateSourceName { get; }
         = new ReactiveProperty<string>(string.Empty, ReactivePropertyMode.DistinctUntilChanged);
-    public IReactiveProperty<string> DeadStateSourceName { get; init; }
+    public IReactiveProperty<string> DeadStateSourceName { get; }
         = new ReactiveProperty<string>(string.Empty, ReactivePropertyMode.DistinctUntilChanged);
 
     private readonly ISubject<Unit> testAlive = new Subject<Unit>();
@@ -44,9 +50,9 @@ public class MainWindow : Window, IMainWindow, IDisposable
     private readonly ISubject<Unit> testDead = new Subject<Unit>();
     public IObservable<Unit> TestDead => testDead.AsObservable();
 
-    public IReactiveProperty<bool> PrintLogsToChat { get; init; }
+    public IReactiveProperty<bool> PrintLogsToChat { get; }
         = new ReactiveProperty<bool>(mode: ReactivePropertyMode.DistinctUntilChanged);
-    public IReactiveProperty<int> MinimumVisibleLogLevel { get; init; }
+    public IReactiveProperty<int> MinimumVisibleLogLevel { get; }
         = new ReactiveProperty<int>(mode: ReactivePropertyMode.DistinctUntilChanged);
 
     private string[]? inputDevices;
@@ -55,6 +61,7 @@ public class MainWindow : Window, IMainWindow, IDisposable
     private readonly WindowSystem windowSystem;
     private readonly AudioDeviceController audioDeviceController;
     private readonly VoiceRoomManager voiceRoomManager;
+    private readonly string[] falloffTypes;
 
     public MainWindow(
         WindowSystem windowSystem,
@@ -65,6 +72,7 @@ public class MainWindow : Window, IMainWindow, IDisposable
         this.windowSystem = windowSystem ?? throw new ArgumentNullException(nameof(windowSystem));
         this.audioDeviceController = audioDeviceController ?? throw new ArgumentNullException(nameof(audioDeviceController));
         this.voiceRoomManager = voiceRoomManager ?? throw new ArgumentNullException(nameof(voiceRoomManager));
+        this.falloffTypes = Enum.GetNames(typeof(AudioFalloffModel.FalloffType));
         windowSystem.AddWindow(this);
     }
 
@@ -75,10 +83,10 @@ public class MainWindow : Window, IMainWindow, IDisposable
             return;
         }
 
-        var height = 400;
-        ImGui.SetNextWindowSize(new Vector2(400, height), ImGuiCond.FirstUseEver);
-        ImGui.SetNextWindowSizeConstraints(new Vector2(400, height), new Vector2(float.MaxValue, float.MaxValue));
-        if (ImGui.Begin("ProximityVoiceChat", ref this.visible, ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse))
+        var width = 350;
+        ImGui.SetNextWindowSize(new Vector2(width, 400), ImGuiCond.FirstUseEver);
+        ImGui.SetNextWindowSizeConstraints(new Vector2(width, 250), new Vector2(float.MaxValue, float.MaxValue));
+        if (ImGui.Begin("ProximityVoiceChat", ref this.visible))
         {
             DrawContents();
         }
@@ -98,13 +106,14 @@ public class MainWindow : Window, IMainWindow, IDisposable
         if (ImGui.BeginTable("AudioDevices", 2))
         {
             ImGui.TableSetupColumn("AudioDevicesCol1", ImGuiTableColumnFlags.WidthFixed, 80);
+            ImGui.TableSetupColumn("AudioDevicesCol2", ImGuiTableColumnFlags.WidthFixed, 230);
 
             ImGui.TableNextRow(); ImGui.TableNextColumn();
             //var rightPad = 110;
 
             ImGui.AlignTextToFramePadding();
             ImGui.Text("Input Device"); ImGui.TableNextColumn();
-            //ImGui.SetNextItemWidth(ImGui.GetColumnWidth() - rightPad);
+            ImGui.SetNextItemWidth(ImGui.GetColumnWidth());
             this.inputDevices ??= this.audioDeviceController.GetAudioRecordingDevices().ToArray();
             var inputDeviceIndex = this.SelectedAudioInputDeviceIndex.Value + 1;
             if (ImGui.Combo("##InputDevice", ref inputDeviceIndex, this.inputDevices, this.inputDevices.Length))
@@ -115,6 +124,7 @@ public class MainWindow : Window, IMainWindow, IDisposable
             ImGui.TableNextRow(); ImGui.TableNextColumn();
             ImGui.AlignTextToFramePadding();
             ImGui.Text("Output Device"); ImGui.TableNextColumn();
+            ImGui.SetNextItemWidth(ImGui.GetColumnWidth());
             this.outputDevices ??= this.audioDeviceController.GetAudioPlaybackDevices().ToArray();
             var outputDeviceIndex = this.SelectedAudioOutputDeviceIndex.Value + 1;
             if (ImGui.Combo("##OutputDevice", ref outputDeviceIndex, this.outputDevices, this.outputDevices.Length))
@@ -127,11 +137,6 @@ public class MainWindow : Window, IMainWindow, IDisposable
         {
             this.PlayingBackMicAudio.Value = !this.PlayingBackMicAudio.Value;
         }
-
-        //if (ImGui.Button("Log all GameObjects"))
-        //{
-        //    this.logAllGameObjects.OnNext(Unit.Default);
-        //}
 
         ImGui.Spacing();
 
@@ -153,40 +158,156 @@ public class MainWindow : Window, IMainWindow, IDisposable
         var indent = 10;
         ImGui.Indent(indent);
 
-        foreach(var playerName in this.voiceRoomManager.PlayersInVoiceRoom)
+        foreach (var (playerName, index) in this.voiceRoomManager.PlayersInVoiceRoom.Select((p, i) => (p, i)))
         {
-            ImGui.Text(playerName);
+            Vector4 color = Vector4Colors.Red;
+            string tooltip = "Connection Error";
+
+            // Assume first player is always the local player
+            if (index == 0)
+            {
+                var signalingChannel = this.voiceRoomManager.SignalingChannel;
+                if (signalingChannel != null)
+                {
+                    if (signalingChannel.Connected)
+                    {
+                        color = Vector4Colors.Green;
+                        tooltip = "Connected";
+                    }
+                    else if (!signalingChannel.Disconnected)
+                    {
+                        color = Vector4Colors.Orange;
+                        tooltip = "Connecting";
+                    }
+                }
+            }
+            else
+            {
+                if (this.voiceRoomManager.WebRTCManager != null &&
+                    this.voiceRoomManager.WebRTCManager.Peers.TryGetValue(playerName, out var peer))
+                {
+                    DataChannel? dataChannel = null;
+                    if (peer.PeerConnection.DataChannels.Count > 0)
+                    {
+                        dataChannel = peer.PeerConnection.DataChannels[0];
+                    }
+
+                    if (dataChannel != null && dataChannel.State == DataChannel.ChannelState.Open)
+                    {
+                        color = Vector4Colors.Green;
+                        tooltip = "Connected";
+                    }
+                    else if (dataChannel == null || dataChannel.State == DataChannel.ChannelState.Connecting)
+                    {
+                        color = Vector4Colors.Orange;
+                        tooltip = "Connecting";
+                    }
+                }
+            }
+
+            // Connectivity indicator
+            var drawList = ImGui.GetWindowDrawList();
+            var pos = ImGui.GetCursorScreenPos();
+            var h = ImGui.GetTextLineHeightWithSpacing();
+            //pos += new Vector2(ImGui.GetWindowSize().X - 110, -h);
+            var radius = 0.3f * h;
+            pos += new Vector2(0, h / 2f);
+            drawList.AddCircleFilled(pos, radius, ImGui.ColorConvertFloat4ToU32(color));
+            if (Vector2.Distance(ImGui.GetMousePos(), pos) < radius)
+            {
+                ImGui.SetTooltip(tooltip);
+            }
+            pos += new Vector2(radius + 3, -h / 2.25f);
+            ImGui.SetCursorScreenPos(pos);
+
+            var playerLabel = new StringBuilder(playerName);
+            if (index > 0 && this.voiceRoomManager.TrackedPlayers.TryGetValue(playerName, out var tp))
+            {
+                playerLabel.Append(" (");
+                playerLabel.Append(float.IsNaN(tp.Distance) ? '?' : tp.Distance.ToString("F1"));
+                playerLabel.Append($"y, {tp.Volume:F2})");
+            }
+            ImGui.Text(playerLabel.ToString());
         }
-
-        //// Connectivity indicator
-        //var drawList = ImGui.GetWindowDrawList();
-        //var pos = ImGui.GetCursorScreenPos();
-        //var h = ImGui.GetTextLineHeightWithSpacing() / 2f;
-        //pos += new Vector2(ImGui.GetWindowSize().X - 110, -h);
-        //var radius = 0.6f * h;
-        //var color = this.ObsConnected ? Vector4Colors.Green : Vector4Colors.Red;
-        //drawList.AddCircleFilled(pos, radius, ImGui.ColorConvertFloat4ToU32(color));
-        //pos += new Vector2(radius + 3, -h);
-        //ImGui.SetCursorScreenPos(pos);
-        //ImGui.Text(this.ObsConnected ? "Connected" : "Not connected");
-
-        //var obsConnectOnStartup = this.ObsConnectOnStartup.Value;
-        //if (ImGui.Checkbox("Connect on startup", ref obsConnectOnStartup))
-        //{
-        //    this.ObsConnectOnStartup.Value = obsConnectOnStartup;
-        //}
-        //if (ImGui.Button(!this.ObsConnected ? "Connect" : "Disconnect"))
-        //{
-        //    this.playTestVoice.OnNext(Unit.Default);
-        //}
-        //if (this.ShowObsAuthError)
-        //{
-        //    ImGui.SameLine();
-        //    ImGui.TextColored(Vector4Colors.Red, "Authentication failed.");
-        //}
 
         ImGui.Indent(-indent);
         ImGui.Spacing();
+
+        if (ImGui.CollapsingHeader("Audio Falloff Settings"))
+        {
+            if (ImGui.BeginTable("AudioFalloffSettings", 2))
+            {
+                ImGui.TableSetupColumn("AudioFalloffSettingsCol1", ImGuiTableColumnFlags.WidthFixed, 110);
+                ImGui.TableSetupColumn("AudioFalloffSettingsCol2", ImGuiTableColumnFlags.WidthFixed, 150);
+
+                ImGui.TableNextRow(); ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding();
+                ImGui.Text("Falloff Type"); ImGui.TableNextColumn();
+                ImGui.SetNextItemWidth(ImGui.GetColumnWidth());
+                var falloffType = (int)this.AudioFalloffType.Value;
+                if (ImGui.Combo("##AudioFalloffType", ref falloffType, this.falloffTypes, this.falloffTypes.Length))
+                {
+                    this.AudioFalloffType.Value = (AudioFalloffModel.FalloffType)falloffType;
+                }
+
+                ImGui.TableNextRow(); ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding();
+                ImGui.Text("Minimum Distance");
+                if (ImGui.IsItemHovered())
+                {
+                    ImGui.SetTooltip("Volume is max when below this distance, in yalms");
+                }
+                ImGui.TableNextColumn();
+                ImGui.SetNextItemWidth(ImGui.GetColumnWidth());
+                var minDistance = this.AudioFalloffMinimumDistance.Value;
+                if (ImGui.InputFloat("##AudioFalloffMinimumDistance", ref minDistance, 0.1f, 1.0f, "%.1f"))
+                {
+                    this.AudioFalloffMinimumDistance.Value = minDistance;
+                }
+
+                ImGui.TableNextRow(); ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding();
+                ImGui.Text("Maximum Distance");
+                if (ImGui.IsItemHovered())
+                {
+                    ImGui.SetTooltip("Volume is 0 when above this distance, in yalms");
+                }
+                ImGui.TableNextColumn();
+                ImGui.SetNextItemWidth(ImGui.GetColumnWidth());
+                var maxDistance = this.AudioFalloffMaximumDistance.Value;
+                if (ImGui.InputFloat("##AudioFalloffMaximumDistance", ref maxDistance, 0.1f, 1.0f, "%.1f"))
+                {
+                    this.AudioFalloffMaximumDistance.Value = maxDistance;
+                }
+
+                ImGui.TableNextRow(); ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding();
+                ImGui.Text("Falloff Factor");
+                if (ImGui.IsItemHovered())
+                {
+                    ImGui.SetTooltip("The higher this number, the quicker volume drops off over distance. This value is not used in linear falloff.");
+                }
+                ImGui.TableNextColumn();
+                ImGui.SetNextItemWidth(ImGui.GetColumnWidth());
+                var falloffFactor = this.AudioFalloffFactor.Value;
+                if (ImGui.InputFloat("##AudioFalloffFactor", ref falloffFactor, 0.1f, 1.0f, "%.1f"))
+                {
+                    this.AudioFalloffFactor.Value = falloffFactor;
+                }
+
+                ImGui.TableNextRow(); ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding();
+                ImGui.Text("Mute Dead Players");
+                ImGui.TableNextColumn();
+                ImGui.SetNextItemWidth(ImGui.GetColumnWidth());
+                var muteDeadPlayers = this.MuteDeadPlayers.Value;
+                if (ImGui.Checkbox("##MuteDeadPlayers", ref muteDeadPlayers))
+                {
+                    this.MuteDeadPlayers.Value = muteDeadPlayers;
+                }
+                ImGui.EndTable();
+            }
+        }
 
         //ImGui.Text("OBS Settings"); // ---------------
         //ImGui.Indent(indent);

@@ -1,6 +1,6 @@
 ﻿using ImGuiNET;
 
-namespace ProximityVoiceChat;
+namespace ProximityVoiceChat.Extensions;
 
 public static class ImGuiExtensions
 {

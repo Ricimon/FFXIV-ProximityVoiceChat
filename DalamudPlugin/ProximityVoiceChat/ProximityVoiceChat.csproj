@@ -38,22 +38,11 @@
     <PackageReference Include="YamlDotNet" Version="16.1.0" />
   </ItemGroup>
 
-  <ItemGroup><!--<Content Include="$(MSBuildThisFileDirectory)native\win10-x64\mrwebrtc.dll">
-			<CopyToOutput>PreserveNewest</CopyToOutput>
-			<PackagePath>runtimes/win10-x64/native</PackagePath>
-		</Content>
-		<Content Include="$(MSBuildThisFileDirectory)native\win10-x86\mrwebrtc.dll">
-			<CopyToOutput>PreserveNewest</CopyToOutput>
-			<PackagePath>runtimes/win10-x86/native</PackagePath>
-		</Content>-->
-  
-    <Content Include="app.config">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-  </ItemGroup>
-
   <ItemGroup>
     <None Update="mrwebrtc.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="config.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

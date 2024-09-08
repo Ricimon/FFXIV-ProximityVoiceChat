@@ -47,6 +47,14 @@ public class MainWindowPresenter(
         Bind(this.view.PlayingBackMicAudio,
             b => this.audioInputController.PlayingBackMicAudio = b, this.audioInputController.PlayingBackMicAudio);
 
+        Bind(this.view.AudioFalloffType,
+            t => { this.configuration.FalloffModel.Type = t; this.configuration.Save(); }, this.configuration.FalloffModel.Type);
+        Bind(this.view.AudioFalloffMinimumDistance,
+            f => { this.configuration.FalloffModel.MinimumDistance = f; this.configuration.Save(); }, this.configuration.FalloffModel.MinimumDistance);
+        Bind(this.view.AudioFalloffMaximumDistance,
+            f => { this.configuration.FalloffModel.MaximumDistance = f; this.configuration.Save(); }, this.configuration.FalloffModel.MaximumDistance);
+        Bind(this.view.AudioFalloffFactor,
+            f => { this.configuration.FalloffModel.FalloffFactor = f; this.configuration.Save(); }, this.configuration.FalloffModel.FalloffFactor);
         Bind(this.view.PrintLogsToChat,
             b => { this.configuration.PrintLogsToChat = b; this.configuration.Save(); }, this.configuration.PrintLogsToChat);
         Bind(this.view.MinimumVisibleLogLevel,
@@ -57,23 +65,6 @@ public class MainWindowPresenter(
     {
         this.view.JoinVoiceRoom.Subscribe(_ => this.voiceRoomManager.JoinVoiceRoom());
         this.view.LeaveVoiceRoom.Subscribe(_ => this.voiceRoomManager.LeaveVoiceRoom());
-
-        this.view.LogAllGameObjects.Subscribe(_ =>
-        {
-            foreach(var o in this.objectTable)
-            {
-                this.logger.Debug("Object address [{0}] name [{1}] gameObjectId [{2}] dataId [{3}] ownerId [{4}] objectIndex [{5}] objectKind [{6}] subKind [{7}] isValid [{8}]",
-                    o.Address,
-                    o.Name,
-                    o.GameObjectId,
-                    o.DataId,
-                    o.OwnerId,
-                    o.ObjectIndex,
-                    o.ObjectKind,
-                    o.SubKind,
-                    o.IsValid());
-            }
-        });
     }
 
     private void Bind<T>(

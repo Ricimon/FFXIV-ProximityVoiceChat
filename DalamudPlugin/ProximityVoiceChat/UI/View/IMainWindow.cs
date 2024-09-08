@@ -13,7 +13,11 @@ public interface IMainWindow : IPluginUIView
     public IObservable<Unit> JoinVoiceRoom { get; }
     public IObservable<Unit> LeaveVoiceRoom { get; }
 
-    public IObservable<Unit> LogAllGameObjects { get; }
+    public IReactiveProperty<AudioFalloffModel.FalloffType> AudioFalloffType { get; }
+    public IReactiveProperty<float> AudioFalloffMinimumDistance { get; }
+    public IReactiveProperty<float> AudioFalloffMaximumDistance { get; }
+    public IReactiveProperty<float> AudioFalloffFactor { get; }
+    public IReactiveProperty<bool> MuteDeadPlayers { get; }
 
     public IReactiveProperty<string> AliveStateSourceName { get; }
     public IReactiveProperty<string> DeadStateSourceName { get; }

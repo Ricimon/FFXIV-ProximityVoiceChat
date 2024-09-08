@@ -9,8 +9,10 @@ using ProximityVoiceChat.Log;
 using ProximityVoiceChat.WebRTC;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Numerics;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -18,6 +20,12 @@ namespace ProximityVoiceChat;
 
 public class VoiceRoomManager : IDisposable
 {
+    public class Player
+    {
+        public float Distance { get; set; } = float.NaN;
+        public float Volume { get; set; } = 1.0f;
+    }
+
     public bool InRoom { get; private set; }
 
     public IEnumerable<string> PlayersInVoiceRoom
@@ -26,9 +34,9 @@ public class VoiceRoomManager : IDisposable
         {
             if (InRoom)
             {
-                if (this.webRTCManager != null)
+                if (this.WebRTCManager != null)
                 {
-                    return this.webRTCManager.Peers.Keys.Prepend(GetLocalPlayerName() ?? "null");
+                    return this.WebRTCManager.Peers.Keys.Prepend(GetLocalPlayerName() ?? "null");
                 }
                 else
                 {
@@ -42,13 +50,12 @@ public class VoiceRoomManager : IDisposable
         }
     }
 
-    private const string Token = "FFXIV-ProximityVoiceChat_Signaling";
-    //private const string SignalingServerUrl = "http://ffxiv.ricimon.com";
-    private const string SignalingServerUrl = "http://192.168.1.101:3030";
-    private const string PeerType = "player";
+    public SignalingChannel? SignalingChannel { get; private set; }
+    public WebRTCManager? WebRTCManager { get; private set; }
 
-    private SignalingChannel? signalingChannel;
-    private WebRTCManager? webRTCManager;
+    public Dictionary<string, Player> TrackedPlayers { get; } = [];
+
+    private const string PeerType = "player";
 
     private bool isDisposed;
 
@@ -56,11 +63,16 @@ public class VoiceRoomManager : IDisposable
     private readonly IClientState clientState;
     private readonly IFramework framework;
     private readonly IObjectTable objectTable;
+    private readonly Configuration configuration;
     private readonly WebRTCDataChannelHandler.IFactory dataChannelHandlerFactory;
     private readonly AudioDeviceController audioDeviceController;
     private readonly ILogger logger;
 
-    private readonly PeriodicTimer volumeUpdateTimer = new(TimeSpan.FromMilliseconds(200));
+    private readonly string token = string.Empty;
+    private readonly string signalingServerUrl = "http://ffxiv.ricimon.com";
+    //private string signalingServerUrl = "http://192.168.1.101:3030";
+    private readonly PeriodicTimer volumeUpdateTimer = new(TimeSpan.FromMilliseconds(100));
+    private readonly SemaphoreSlim frameworkThreadSemaphore = new(1, 1);
 
     public static string? GetPlayerName(IPlayerCharacter playerCharacter)
     {
@@ -78,6 +90,7 @@ public class VoiceRoomManager : IDisposable
         IClientState clientState,
         IFramework framework,
         IObjectTable objectTable,
+        Configuration configuration,
         WebRTCDataChannelHandler.IFactory dataChannelHandlerFactory,
         AudioDeviceController audioDeviceController,
         ILogger logger)
@@ -86,14 +99,43 @@ public class VoiceRoomManager : IDisposable
         this.clientState = clientState;
         this.framework = framework;
         this.objectTable = objectTable;
+        this.configuration = configuration;
         this.dataChannelHandlerFactory = dataChannelHandlerFactory;
         this.audioDeviceController = audioDeviceController;
         this.logger = logger;
+
+        var configPath = Path.Combine(pluginInterface.AssemblyLocation.DirectoryName ?? string.Empty, "config.json");
+        LoadConfig? config = null;
+        if (File.Exists(configPath))
+        {
+            var configString = File.ReadAllText(configPath);
+            try
+            {
+                config = JsonSerializer.Deserialize<LoadConfig>(configString);
+            }
+            catch (Exception) { }
+        }
+        if (config != null)
+        {
+            if (config.token != null)
+            {
+                this.token = config.token;
+            }
+            if (!string.IsNullOrEmpty(config.serverUrlOverride))
+            {
+                this.signalingServerUrl = config.serverUrlOverride;
+            }
+        }
+        else
+        {
+            logger.Warn("Could not load config file at {0}", configPath);
+        }
 
         Task.Run(async delegate
         {
             while (await this.volumeUpdateTimer.WaitForNextTickAsync())
             {
+                await frameworkThreadSemaphore.WaitAsync();
                 if (isDisposed)
                 {
                     return;
@@ -106,8 +148,8 @@ public class VoiceRoomManager : IDisposable
     public void Dispose()
     {
         isDisposed = true;
-        this.signalingChannel?.Dispose();
-        this.webRTCManager?.Dispose();
+        this.SignalingChannel?.Dispose();
+        this.WebRTCManager?.Dispose();
         this.volumeUpdateTimer.Dispose();
         GC.SuppressFinalize(this);
     }
@@ -132,19 +174,25 @@ public class VoiceRoomManager : IDisposable
         InRoom = true;
 
         this.logger.Trace("Creating SignalingChannel class with peerId {0}", playerName);
-        this.signalingChannel ??= new SignalingChannel(playerName, PeerType, SignalingServerUrl, Token, this.logger, true);
+        this.SignalingChannel ??= new SignalingChannel(playerName, PeerType, signalingServerUrl, this.token, this.logger, true);
         var options = new WebRTCOptions()
         {
             EnableDataChannel = true,
             DataChannelHandlerFactory = this.dataChannelHandlerFactory,
         };
-        this.webRTCManager ??= new WebRTCManager(playerName, PeerType, this.signalingChannel, options, this.logger, true);
+        this.WebRTCManager ??= new WebRTCManager(playerName, PeerType, this.SignalingChannel, options, this.logger, true);
 
-        this.signalingChannel.OnConnected += OnSignalingServerConnected;
-        this.signalingChannel.OnDisconnected += OnSignalingServerDisconnected;
+        this.SignalingChannel.OnConnected += OnSignalingServerConnected;
+        this.SignalingChannel.OnDisconnected += OnSignalingServerDisconnected;
 
         this.logger.Debug("Attempting to connect to signaling channel.");
-        this.signalingChannel.ConnectAsync().SafeFireAndForget(ex => this.logger.Error(ex.ToString()));
+        this.SignalingChannel.ConnectAsync().SafeFireAndForget(ex =>
+        {
+            if (ex is not OperationCanceledException)
+            {
+                this.logger.Error(ex.ToString());
+            }
+        });
     }
 
     public void LeaveVoiceRoom()
@@ -156,74 +204,21 @@ public class VoiceRoomManager : IDisposable
 
         this.logger.Trace("Attempting to leave voice room.");
 
-        var playerName = GetLocalPlayerName();
-        if (playerName == null) 
-        {
-            this.logger.Error("Player name is null, cannot leave voice room.");
-            return;
-        }
-
         InRoom = false;
 
         this.audioDeviceController.AudioRecordingIsRequested = false;
         this.audioDeviceController.AudioPlaybackIsRequested = false;
         this.audioDeviceController.OnAudioRecordingSourceDataAvailable -= SendAudioSampleToAllPeers;
 
-        if (this.signalingChannel != null)
+        if (this.SignalingChannel != null)
         {
-            this.signalingChannel.OnConnected -= OnSignalingServerConnected;
-            this.signalingChannel.OnDisconnected -= OnSignalingServerDisconnected;
-            if (this.signalingChannel.Connected)
-            {
-                this.signalingChannel?.DisconnectAsync().SafeFireAndForget(ex => this.logger.Error(ex.ToString()));
-            }
+            this.SignalingChannel.OnConnected -= OnSignalingServerConnected;
+            this.SignalingChannel.OnDisconnected -= OnSignalingServerDisconnected;
+            this.SignalingChannel?.DisconnectAsync().SafeFireAndForget(ex => this.logger.Error(ex.ToString()));
         }
     }
 
-    private void UpdatePlayerVolumes()
-    {
-        // Use polling to set individual channel volumes.
-        // The search is done by iterating through all GameObjects and finding any connected players out of them,
-        // so we reset all players volumes before calculating any volumes in case the players cannot be found.
-        this.audioDeviceController.ResetAllChannelsVolume();
-
-        // Conditions where volume is impossible/unnecessary to calculate
-        if (this.clientState.LocalPlayer == null)
-        {
-            return;
-        }
-        if (this.webRTCManager == null)
-        {
-            return;
-        }
-        if (this.webRTCManager.Peers.Select(kv => kv.Value.PeerConnection.DataChannels.Count).All(c => c == 0))
-        {
-            return;
-        }
-
-        var players = this.objectTable.Where(go => go.ObjectKind == ObjectKind.Player).OfType<IPlayerCharacter>();
-        foreach (var player in players)
-        {
-            var playerName = GetPlayerName(player);
-            if (playerName != null &&
-                this.webRTCManager.Peers.TryGetValue(playerName, out var peer) &&
-                peer.PeerConnection.DataChannels.Count > 0)
-            {
-                var volume = 1.0f;
-                var distance = Vector3.Distance(this.clientState.LocalPlayer.Position, player.Position);
-                var nearThreshold = 1.0f;
-                if (distance > nearThreshold)
-                {
-                    volume = 1.0f - (distance - nearThreshold) / 10.0f;
-                    volume = Math.Clamp(volume, 0, 1);
-                }
-                this.logger.Debug("Player {0} is {1} units away, setting volume to {2}", peer.PeerId, distance, volume);
-                this.audioDeviceController.SetChannelVolume(peer.PeerId, volume);
-            }
-        }
-    }
-
-    private string? GetLocalPlayerName()
+    public string? GetLocalPlayerName()
     {
         var localPlayer = this.clientState.LocalPlayer;
         if (localPlayer == null)
@@ -231,7 +226,109 @@ public class VoiceRoomManager : IDisposable
             return null;
         }
         return GetPlayerName(localPlayer);
+    }
 
+    private void UpdatePlayerVolumes()
+    {
+        try
+        {
+            // Use polling to set individual channel volumes.
+            // The search is done by iterating through all GameObjects and finding any connected players out of them,
+            // so we reset all players volumes before calculating any volumes in case the players cannot be found.
+            this.audioDeviceController.ResetAllChannelsVolume();
+            foreach (var tp in this.TrackedPlayers.Values)
+            {
+                tp.Distance = float.NaN;
+                tp.Volume = 1.0f;
+            }
+
+            // Conditions where volume is impossible/unnecessary to calculate
+            if (this.clientState.LocalPlayer == null)
+            {
+                return;
+            }
+            if (this.WebRTCManager == null)
+            {
+                return;
+            }
+            if (this.WebRTCManager.Peers.Select(kv => kv.Value.PeerConnection.DataChannels.Count).All(c => c == 0))
+            {
+                return;
+            }
+
+            var players = this.objectTable.Where(go => go.ObjectKind == ObjectKind.Player).OfType<IPlayerCharacter>();
+            foreach (var player in players)
+            {
+                var playerName = GetPlayerName(player);
+                if (playerName != null &&
+                    this.WebRTCManager.Peers.TryGetValue(playerName, out var peer) &&
+                    peer.PeerConnection.DataChannels.Count > 0)
+                {
+                    var distance = Vector3.Distance(this.clientState.LocalPlayer.Position, player.Position);
+                    var deathMute = this.configuration.MuteDeadPlayers && player.IsDead;
+                    float volume;
+                    if (deathMute)
+                    {
+                        volume = 0;
+                        this.logger.Debug("Player {0} is dead, setting volume to {1}", peer.PeerId, volume);
+                    }
+                    else
+                    {
+                        volume = CalculateVolume(distance);
+                        this.logger.Debug("Player {0} is {1} units away, setting volume to {2}", peer.PeerId, distance, volume);
+                    }
+
+                    this.audioDeviceController.SetChannelVolume(peer.PeerId, volume);
+                    if (this.TrackedPlayers.TryGetValue(playerName, out var tp))
+                    {
+                        tp.Distance = distance;
+                        tp.Volume = volume;
+                    }
+                }
+            }
+        }
+        finally
+        {
+            this.frameworkThreadSemaphore.Release();
+        }
+    }
+
+    private float CalculateVolume(float distance)
+    {
+        var minDistance = this.configuration.FalloffModel.MinimumDistance;
+        var maxDistance = this.configuration.FalloffModel.MaximumDistance;
+        var falloffFactor = this.configuration.FalloffModel.FalloffFactor;
+        double volume;
+        try
+        {
+            double scale;
+            switch (this.configuration.FalloffModel.Type)
+            {
+                case AudioFalloffModel.FalloffType.InverseDistance:
+                    distance = Math.Clamp(distance, minDistance, maxDistance);
+                    scale = Math.Pow((maxDistance - distance) / (maxDistance - minDistance), distance / maxDistance);
+                    volume = minDistance / (minDistance + falloffFactor * (distance - minDistance)) * scale;
+                    break;
+                case AudioFalloffModel.FalloffType.ExponentialDistance:
+                    distance = Math.Clamp(distance, minDistance, maxDistance);
+                    scale = Math.Pow((maxDistance - distance) / (maxDistance - minDistance), distance / maxDistance);
+                    volume = Math.Pow(distance / minDistance, -falloffFactor) * scale;
+                    break;
+                case AudioFalloffModel.FalloffType.LinearDistance:
+                    distance = Math.Clamp(distance, minDistance, maxDistance);
+                    volume = 1 - falloffFactor * (distance - minDistance) / (maxDistance - minDistance);
+                    break;
+                default:
+                    volume = 1.0;
+                    break;
+            }
+        }
+        catch (DivideByZeroException)
+        {
+            volume = 1.0;
+        }
+        volume = Math.Clamp(volume, 0.0, 1.0);
+        return (float)volume;
     }
 
     private void OnSignalingServerConnected()
@@ -250,7 +347,7 @@ public class VoiceRoomManager : IDisposable
     {
         try
         {
-            if (this.webRTCManager == null)
+            if (this.WebRTCManager == null)
             {
                 return;
             }
@@ -260,7 +357,7 @@ public class VoiceRoomManager : IDisposable
                 return;
             }
 
-            foreach (var peer in this.webRTCManager.Peers.Values)
+            foreach (var peer in this.WebRTCManager.Peers.Values)
             {
                 if (peer.PeerConnection.DataChannels.Count > 0)
                 {

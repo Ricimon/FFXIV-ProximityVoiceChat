@@ -5,7 +5,7 @@ using System.Collections.Generic;
 
 namespace ProximityVoiceChat.WebRTC
 {
-    public class WebRTCDataChannelHandler(AudioDeviceController audioDeviceController, ILogger logger) : IDisposable
+    public class WebRTCDataChannelHandler(AudioDeviceController audioDeviceController, VoiceRoomManager voiceRoomManager, ILogger logger) : IDisposable
     {
         private string? peerId;
         private PeerConnection? peerConnection;
@@ -13,6 +13,7 @@ namespace ProximityVoiceChat.WebRTC
         private readonly Dictionary<string, Action> stateChangedSubscriptions = [];
 
         private readonly AudioDeviceController audioDeviceController = audioDeviceController;
+        private readonly VoiceRoomManager voiceRoomManager = voiceRoomManager;
         private readonly ILogger logger = logger;
 
         public void RegisterDataChannel(string ourPeerId, string ourPeerType, Peer peer)
@@ -58,6 +59,7 @@ namespace ProximityVoiceChat.WebRTC
                 });
 
                 this.audioDeviceController.RemoveAudioPlaybackChannel(this.peerId!);
+                this.voiceRoomManager.TrackedPlayers.Remove(this.peerId!);
             }
         }
 
@@ -67,6 +69,7 @@ namespace ProximityVoiceChat.WebRTC
             if (state == DataChannel.ChannelState.Open)
             {
                 this.audioDeviceController.CreateAudioPlaybackChannel(this.peerId!);
+                this.voiceRoomManager.TrackedPlayers.Add(this.peerId!, new());
             }
         }
 

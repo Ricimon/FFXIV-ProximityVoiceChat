@@ -13,7 +13,10 @@ namespace ProximityVoiceChat
         public int SelectedAudioInputDeviceIndex { get; set; } = -1;
         public int SelectedAudioOutputDeviceIndex { get; set; } = -1;
 
-        public bool PrintLogsToChat { get; set; } = true;
+        public AudioFalloffModel FalloffModel { get; set; } = new();
+        public bool MuteDeadPlayers { get; set; }
+
+        public bool PrintLogsToChat { get; set; }
 
         public int MinimumVisibleLogLevel { get; set; } = LogLevel.Info.Ordinal;
 

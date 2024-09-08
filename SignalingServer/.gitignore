@@ -1,3 +1,5 @@
+prod.env
+
 # Logs
 logs
 *.log

@@ -16,6 +16,8 @@ public class WebRTCManager : IDisposable
 {
     public IReadOnlyDictionary<string, Peer> Peers => peers;
 
+    private CancellationTokenSource? disconnectCts;
+
     private readonly string ourPeerId;
     private readonly string ourPeerType;
     private readonly SignalingChannel signalingChannel;
@@ -25,13 +27,14 @@ public class WebRTCManager : IDisposable
     private readonly PeerConnectionConfiguration config;
 
     private readonly ConcurrentDictionary<string, Peer> peers = [];
-    private readonly SemaphoreSlim semaphore = new(1, 1);
+    private readonly SemaphoreSlim onMessageSemaphore = new(1, 1);
 
     public WebRTCManager(string ourPeerId, string ourPeerType, SignalingChannel signalingChannel, WebRTCOptions options, ILogger logger, bool verbose = false)
     {
         this.ourPeerId = ourPeerId;
         this.ourPeerType = ourPeerType;
         this.signalingChannel = signalingChannel;
+        this.signalingChannel.OnConnected += OnConnected;
         this.signalingChannel.OnMessage += OnMessage;
         this.signalingChannel.OnDisconnected += OnDisconnected;
         this.options = options;
@@ -56,19 +59,27 @@ public class WebRTCManager : IDisposable
 
     public void Dispose()
     {
-        if (signalingChannel != null)
+        if (this.signalingChannel != null)
         {
-            signalingChannel.OnMessage -= OnMessage;
-            signalingChannel.OnDisconnected -= OnDisconnected;
+            this.signalingChannel.OnConnected -= OnConnected;
+            this.signalingChannel.OnMessage -= OnMessage;
+            this.signalingChannel.OnDisconnected -= OnDisconnected;
         }
         OnDisconnected();
+        GC.SuppressFinalize(this);
+    }
+
+    private void OnConnected()
+    {
+        this.disconnectCts?.Dispose();
+        this.disconnectCts = new CancellationTokenSource();
     }
 
     private void OnMessage(SocketIOResponse response)
     {
         Task.Run(async delegate
         {
-            await semaphore.WaitAsync();
+            await onMessageSemaphore.WaitAsync();
             try
             {
                 var message = response.GetValue<SignalMessage>();
@@ -78,11 +89,11 @@ public class WebRTCManager : IDisposable
                     case "open":
                         foreach (var c in payload.connections)
                         {
-                            await AddPeer(c.peerId, c.peerType, payload.bePolite);
+                            await AddPeer(c.peerId, c.peerType, payload.bePolite, cancellationToken: this.disconnectCts!.Token);
                         }
                         break;
                     case "close":
-                        RemovePeer(peers[message.from]);
+                        TryRemovePeer(message.from);
                         break;
                     case "sdp":
                         if (verbose)
@@ -102,26 +113,31 @@ public class WebRTCManager : IDisposable
                         break;
                 }
             }
+            catch (OperationCanceledException)
+            {
+
+            }
             catch (Exception e)
             {
                 this.logger.Error(e.ToString());
             }
             finally
             {
-                semaphore.Release();
+                onMessageSemaphore.Release();
             }
         }).SafeFireAndForget(ex => this.logger.Error(ex.ToString()));
     }
 
     private void OnDisconnected()
     {
+        this.disconnectCts?.Cancel();
         foreach (var peerId in peers.Keys.ToList())
         {
-            RemovePeer(peers[peerId]);
+            TryRemovePeer(peerId);
         }
     }
 
-    private async Task AddPeer(string peerId, string peerType, bool polite, bool canTrickleIceCandidates = true)
+    private async Task AddPeer(string peerId, string peerType, bool polite, bool canTrickleIceCandidates = true, CancellationToken cancellationToken = default)
     {
         if (peers.ContainsKey(peerId))
         {
@@ -146,11 +162,25 @@ public class WebRTCManager : IDisposable
                 CanTrickleIceCandidates = canTrickleIceCandidates,
             });
             logger.Debug("Added {0} as a peer.", peerId);
-            await peerConnection.InitializeAsync(this.config);
+            await peerConnection.InitializeAsync(this.config, cancellationToken);
+
+            if (cancellationToken.IsCancellationRequested)
+            {
+                TryRemovePeer(peerId);
+                return;
+            }
+
             // Create a data channel if needed
             if (options.EnableDataChannel)
             {
-                await peerConnection.AddDataChannelAsync(0, $"{peerId}Channel", true, false);
+                await peerConnection.AddDataChannelAsync(0, $"{peerId}Channel", true, false, cancellationToken);
+
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    TryRemovePeer(peerId);
+                    return;
+                }
+
                 try
                 {
                     var handler = options.DataChannelHandlerFactory!.CreateHandler();
@@ -280,17 +310,28 @@ public class WebRTCManager : IDisposable
         }
     }
 
-    private void RemovePeer(Peer peer)
+    private bool TryRemovePeer(string peerId)
     {
-        if (peer != null)
+        if (peers.TryRemove(peerId, out var peer))
         {
             peer.DataChannelHandler?.Dispose();
-            peer.PeerConnection?.Dispose();
-            peers.TryRemove(peer.PeerId, out _);
+            try
+            {
+                peer.PeerConnection?.Dispose();
+            }
+            catch (AggregateException e)
+            {
+                if (e.InnerException is not TaskCanceledException)
+                {
+                    throw;
+                }
+            }
             if (verbose)
             {
                 logger.Debug("Connection with {0} has been removed", peer.PeerId);
             }
+            return true;
         }
+        return false;
     }
 }

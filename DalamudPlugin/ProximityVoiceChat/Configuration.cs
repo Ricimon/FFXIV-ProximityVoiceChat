@@ -13,6 +13,8 @@ namespace ProximityVoiceChat
         public int SelectedAudioInputDeviceIndex { get; set; } = -1;
         public int SelectedAudioOutputDeviceIndex { get; set; } = -1;
 
+        public float MasterVolume { get; set; } = 2.0f;
+
         public AudioFalloffModel FalloffModel { get; set; } = new();
         public bool MuteDeadPlayers { get; set; }
 

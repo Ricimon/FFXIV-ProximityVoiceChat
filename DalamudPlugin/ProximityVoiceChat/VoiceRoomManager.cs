@@ -68,7 +68,7 @@ public class VoiceRoomManager : IDisposable
     private readonly AudioDeviceController audioDeviceController;
     private readonly ILogger logger;
 
-    private readonly string token = string.Empty;
+    private readonly LoadConfig loadConfig;
     private readonly string signalingServerUrl = "http://ffxiv.ricimon.com";
     //private string signalingServerUrl = "http://192.168.1.101:3030";
     private readonly PeriodicTimer volumeUpdateTimer = new(TimeSpan.FromMilliseconds(100));
@@ -105,30 +105,24 @@ public class VoiceRoomManager : IDisposable
         this.logger = logger;
 
         var configPath = Path.Combine(pluginInterface.AssemblyLocation.DirectoryName ?? string.Empty, "config.json");
-        LoadConfig? config = null;
+        this.loadConfig = null!;
         if (File.Exists(configPath))
         {
             var configString = File.ReadAllText(configPath);
             try
             {
-                config = JsonSerializer.Deserialize<LoadConfig>(configString);
+                this.loadConfig = JsonSerializer.Deserialize<LoadConfig>(configString)!;
             }
             catch (Exception) { }
         }
-        if (config != null)
-        {
-            if (config.token != null)
-            {
-                this.token = config.token;
-            }
-            if (!string.IsNullOrEmpty(config.serverUrlOverride))
-            {
-                this.signalingServerUrl = config.serverUrlOverride;
-            }
-        }
-        else
+        if (this.loadConfig == null)
         {
             logger.Warn("Could not load config file at {0}", configPath);
+            this.loadConfig = new();
+        }
+        if (!string.IsNullOrEmpty(this.loadConfig.serverUrlOverride))
+        {
+            this.signalingServerUrl = this.loadConfig.serverUrlOverride;
         }
 
         Task.Run(async delegate
@@ -174,11 +168,13 @@ public class VoiceRoomManager : IDisposable
         InRoom = true;
 
         this.logger.Trace("Creating SignalingChannel class with peerId {0}", playerName);
-        this.SignalingChannel ??= new SignalingChannel(playerName, PeerType, signalingServerUrl, this.token, this.logger, true);
+        this.SignalingChannel ??= new SignalingChannel(playerName, PeerType, signalingServerUrl, this.loadConfig.token, this.logger, true);
         var options = new WebRTCOptions()
         {
             EnableDataChannel = true,
             DataChannelHandlerFactory = this.dataChannelHandlerFactory,
+            TurnUsername = this.loadConfig.turnUsername,
+            TurnPassword = this.loadConfig.turnPassword,
         };
         this.WebRTCManager ??= new WebRTCManager(playerName, PeerType, this.SignalingChannel, options, this.logger, true);
 
@@ -278,7 +274,7 @@ public class VoiceRoomManager : IDisposable
                         this.logger.Debug("Player {0} is {1} units away, setting volume to {2}", peer.PeerId, distance, volume);
                     }
 
-                    this.audioDeviceController.SetChannelVolume(peer.PeerId, volume);
+                    this.audioDeviceController.SetChannelVolume(peer.PeerId, volume * this.configuration.MasterVolume);
                     if (this.TrackedPlayers.TryGetValue(playerName, out var tp))
                     {
                         tp.Distance = distance;

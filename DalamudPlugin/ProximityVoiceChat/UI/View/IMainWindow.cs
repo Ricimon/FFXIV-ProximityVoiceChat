@@ -13,6 +13,7 @@ public interface IMainWindow : IPluginUIView
     public IObservable<Unit> JoinVoiceRoom { get; }
     public IObservable<Unit> LeaveVoiceRoom { get; }
 
+    public IReactiveProperty<float> MasterVolume { get; }
     public IReactiveProperty<AudioFalloffModel.FalloffType> AudioFalloffType { get; }
     public IReactiveProperty<float> AudioFalloffMinimumDistance { get; }
     public IReactiveProperty<float> AudioFalloffMaximumDistance { get; }

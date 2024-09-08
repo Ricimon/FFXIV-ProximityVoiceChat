@@ -46,13 +46,14 @@ public class WebRTCManager : IDisposable
             [
                  new() 
                  {
-                     Urls =
-                     {
-                         "stun:stun.l.google.com:19302",
-                         "stun:stun1.l.google.com:19302",
-                         "stun:stun2.l.google.com:19302"
-                     }
-                 }
+                     Urls = { "stun:ffxiv.ricimon.com:3478" },
+                 },
+                 new()
+                 {
+                     Urls = { "turn:ffxiv.ricimon.com:3478" },
+                     TurnUserName = options.TurnUsername,
+                     TurnPassword = options.TurnPassword,
+                 },
             ]
         };
     }

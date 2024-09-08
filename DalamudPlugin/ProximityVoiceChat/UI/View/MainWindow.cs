@@ -34,6 +34,7 @@ public class MainWindow : Window, IMainWindow, IDisposable
     private readonly ISubject<Unit> leaveVoiceRoom = new Subject<Unit>();
     public IObservable<Unit> LeaveVoiceRoom => leaveVoiceRoom.AsObservable();
 
+    public IReactiveProperty<float> MasterVolume { get; } = new ReactiveProperty<float>();
     public IReactiveProperty<AudioFalloffModel.FalloffType> AudioFalloffType { get; } = new ReactiveProperty<AudioFalloffModel.FalloffType>();
     public IReactiveProperty<float> AudioFalloffMinimumDistance { get; } = new ReactiveProperty<float>();
     public IReactiveProperty<float> AudioFalloffMaximumDistance { get; } = new ReactiveProperty<float>();
@@ -239,6 +240,16 @@ public class MainWindow : Window, IMainWindow, IDisposable
             {
                 ImGui.TableSetupColumn("AudioFalloffSettingsCol1", ImGuiTableColumnFlags.WidthFixed, 110);
                 ImGui.TableSetupColumn("AudioFalloffSettingsCol2", ImGuiTableColumnFlags.WidthFixed, 150);
+
+                ImGui.TableNextRow(); ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding();
+                ImGui.Text("Master Volume"); ImGui.TableNextColumn();
+                ImGui.SetNextItemWidth(ImGui.GetColumnWidth());
+                var masterVolume = this.MasterVolume.Value * 100.0f;
+                if (ImGui.SliderFloat("##MasterVolume", ref masterVolume, 0.0f, 300.0f, "%1.0f%%"))
+                {
+                    this.MasterVolume.Value = masterVolume / 100.0f;
+                }
 
                 ImGui.TableNextRow(); ImGui.TableNextColumn();
                 ImGui.AlignTextToFramePadding();

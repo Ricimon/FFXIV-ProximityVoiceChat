@@ -1,9 +1,0 @@
-{
-  "Author": "Ricimon",
-  "Name": "NodejsBridge",
-  "Punchline": "Nodejs bridge",
-  "Description": "This plugin must only ever be loaded once.",
-  "RepoUrl": "https://github.com/Ricimon/FFXIV-ProximityVoiceChat",
-  "InternalName": "nodejsBridge",
-  "ApplicableVersion": "any"
-}

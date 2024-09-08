@@ -97,6 +97,7 @@ public class AudioDeviceController : IDisposable
     private readonly WaveFormat waveFormat = WaveFormat.CreateIeeeFloatWaveFormat(16000, 1);
     private readonly Dictionary<string, PlaybackChannel> playbackChannels = [];
     private readonly BufferedWaveProvider micPlaybackWaveProvider;
+    private readonly VolumeSampleProvider micPlaybackVolumeProvider;
     private readonly MixingSampleProvider outputSampleProvider;
     private readonly Configuration configuration;
     private readonly ILogger logger;
@@ -134,8 +135,9 @@ public class AudioDeviceController : IDisposable
         this.audioPlaybackDeviceIndex = configuration.SelectedAudioOutputDeviceIndex;
 
         this.micPlaybackWaveProvider = new BufferedWaveProvider(this.waveFormat);
+        this.micPlaybackVolumeProvider = new VolumeSampleProvider(this.micPlaybackWaveProvider.ToSampleProvider());
         this.outputSampleProvider = new MixingSampleProvider(this.waveFormat);
-        this.outputSampleProvider.AddMixerInput(this.micPlaybackWaveProvider);
+        this.outputSampleProvider.AddMixerInput(this.micPlaybackVolumeProvider);
     }
 
     public void Dispose()
@@ -206,7 +208,7 @@ public class AudioDeviceController : IDisposable
     {
         foreach(var channel in this.playbackChannels)
         {
-            channel.Value.VolumeSampleProvider.Volume = 1.0f;
+            channel.Value.VolumeSampleProvider.Volume = this.configuration.MasterVolume;
         }
     }
 
@@ -287,6 +289,7 @@ public class AudioDeviceController : IDisposable
         if (this.audioPlaybackSource != null && this.PlayingBackMicAudio)
         {
             this.micPlaybackWaveProvider.AddSamples(e.Buffer, 0, e.BytesRecorded);
+            this.micPlaybackVolumeProvider.Volume = this.configuration.MasterVolume;
         }
         this.OnAudioRecordingSourceDataAvailable?.Invoke(this, e);
     }

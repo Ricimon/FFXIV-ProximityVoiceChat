@@ -5,12 +5,20 @@
   <PropertyGroup>
     <Authors>Ricimon</Authors>
     <Company></Company>
-    <Version>0.1.4.0</Version>
+    <Version>0.1.9.0</Version>
     <Description></Description>
     <Copyright></Copyright>
     <PackageProjectUrl>https://github.com/Ricimon/FFXIV-ProximityVoiceChat</PackageProjectUrl>
     <IsPackable>false</IsPackable>
     <TargetFramework>net8.0-windows10.0.17763.0</TargetFramework>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <DebugType>portable</DebugType>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <DebugType>none</DebugType>
   </PropertyGroup>
 
   <ItemGroup>

@@ -71,6 +71,8 @@ public class VoiceRoomManager : IDisposable
     private readonly LoadConfig loadConfig;
     private readonly string signalingServerUrl = "http://ffxiv.ricimon.com";
     //private string signalingServerUrl = "http://192.168.1.101:3030";
+    private readonly string stunServerUrl = "stun:ffxiv.ricimon.com:3478";
+    private readonly string turnServerUrl = "turn:ffxiv.ricimon.com:3478";
     private readonly PeriodicTimer volumeUpdateTimer = new(TimeSpan.FromMilliseconds(100));
     private readonly SemaphoreSlim frameworkThreadSemaphore = new(1, 1);
 
@@ -120,10 +122,6 @@ public class VoiceRoomManager : IDisposable
             logger.Warn("Could not load config file at {0}", configPath);
             this.loadConfig = new();
         }
-        if (!string.IsNullOrEmpty(this.loadConfig.serverUrlOverride))
-        {
-            this.signalingServerUrl = this.loadConfig.serverUrlOverride;
-        }
 
         Task.Run(async delegate
         {
@@ -168,11 +166,18 @@ public class VoiceRoomManager : IDisposable
         InRoom = true;
 
         this.logger.Trace("Creating SignalingChannel class with peerId {0}", playerName);
-        this.SignalingChannel ??= new SignalingChannel(playerName, PeerType, signalingServerUrl, this.loadConfig.token, this.logger, true);
+        this.SignalingChannel ??= new SignalingChannel(playerName,
+            PeerType,
+            this.loadConfig.signalingServerOverride ?? this.signalingServerUrl,
+            this.loadConfig.signalingServerToken ?? string.Empty,
+            this.logger,
+            true);
         var options = new WebRTCOptions()
         {
             EnableDataChannel = true,
             DataChannelHandlerFactory = this.dataChannelHandlerFactory,
+            StunServerUrl = this.loadConfig.stunServerOverride ?? this.stunServerUrl,
+            TurnServerUrl = this.loadConfig.turnServerOverride ?? this.turnServerUrl,
             TurnUsername = this.loadConfig.turnUsername,
             TurnPassword = this.loadConfig.turnPassword,
         };
@@ -319,7 +324,7 @@ public class VoiceRoomManager : IDisposable
                     break;
             }
         }
-        catch (DivideByZeroException)
+        catch (Exception e) when (e is DivideByZeroException or ArgumentException)
         {
             volume = 1.0;
         }

@@ -246,7 +246,7 @@ public class MainWindow : Window, IMainWindow, IDisposable
                 ImGui.Text("Master Volume"); ImGui.TableNextColumn();
                 ImGui.SetNextItemWidth(ImGui.GetColumnWidth());
                 var masterVolume = this.MasterVolume.Value * 100.0f;
-                if (ImGui.SliderFloat("##MasterVolume", ref masterVolume, 0.0f, 300.0f, "%1.0f%%"))
+                if (ImGui.SliderFloat("##MasterVolume", ref masterVolume, 0.0f, 500.0f, "%1.0f%%"))
                 {
                     this.MasterVolume.Value = masterVolume / 100.0f;
                 }

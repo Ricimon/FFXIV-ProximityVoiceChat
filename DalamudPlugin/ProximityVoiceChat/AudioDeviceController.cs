@@ -186,7 +186,10 @@ public class AudioDeviceController : IDisposable
             this.logger.Error("An audio playback channel already exists for channel name {0}", channelName);
             return;
         }
-        var bfp = new BufferedWaveProvider(this.waveFormat);
+        var bfp = new BufferedWaveProvider(this.waveFormat)
+        {
+            DiscardOnBufferOverflow = true
+        };
         var vsp = new VolumeSampleProvider(bfp.ToSampleProvider());
         this.outputSampleProvider.AddMixerInput(vsp);
         this.playbackChannels.Add(channelName, new()

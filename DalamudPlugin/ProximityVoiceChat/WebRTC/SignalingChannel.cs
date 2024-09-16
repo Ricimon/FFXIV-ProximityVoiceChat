@@ -122,6 +122,7 @@ public class SignalingChannel : IDisposable
         this.OnDisconnected = null;
         this.RemoveListeners();
         this.socket?.Dispose();
+        GC.SuppressFinalize(this);
     }
 
     private void AddListeners()
@@ -193,6 +194,14 @@ public class SignalingChannel : IDisposable
     private void OnError(object? sender, string error)
     {
         this.logger.Error("Signaling server ERROR: " + error);
+        // An errored socket is considered disconnected, but we'll need to manually set disconnection state
+        // and cancel the connection attempt.
+        this.Disconnected = true;
+        this.disconnectCts?.Cancel();
+        this.disconnectCts?.Dispose();
+        this.disconnectCts = null;
+        // There's a known exception here when attempting to connect again, due to the strange way
+        // the Socket.IO for .NET library internally handles Task state transitions.
     }
 
     private void OnReconnect(object? sender, int attempts)

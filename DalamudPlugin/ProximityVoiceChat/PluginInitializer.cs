@@ -7,6 +7,7 @@ using Ninject.Extensions.Factory;
 using ProximityVoiceChat.Log;
 using ProximityVoiceChat.Ninject;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 
 namespace ProximityVoiceChat;
 
@@ -37,6 +38,7 @@ public sealed class PluginInitializer : IDalamudPlugin
         this.kernel = new StandardKernel(new PluginModule(), new FuncModule());
 
         // Logging
+        TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
         SIPSorcery.LogFactory.Set(this.kernel.Get<DalamudLoggerFactory>());
 
         // Entrypoint
@@ -45,6 +47,20 @@ public sealed class PluginInitializer : IDalamudPlugin
 
     public void Dispose()
     {
+        TaskScheduler.UnobservedTaskException -= OnUnobservedTaskException;
         this.kernel.Dispose();
+    }
+
+    private void OnUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
+    {
+#if DEBUG
+        // There's a number of unobserved Task exceptions that can be thrown by 3rd party libraries
+        // in this project, some of which seem to be unavoidable but harmless.
+        this.kernel.Get<ILogger>().Error(e.Exception.ToString());
+#else
+        // So, lower the severity of the log in release builds.
+        this.kernel.Get<ILogger>().Trace(e.Exception.ToString());
+#endif
+        e.SetObserved();
     }
 }

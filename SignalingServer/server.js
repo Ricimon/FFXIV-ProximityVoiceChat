@@ -82,6 +82,10 @@ io.on("connection", (socket) => {
     }
     socket.join(roomName);
     socket.room = roomName;
+    // Add new room if needed
+    if (!(roomName in rooms)) {
+      rooms[roomName] = {};
+    }
     console.log(`Added ${peerId} to connections, in room ${roomName}`);
     // Let new peer know about all existing peers in its room
     socket.send({
@@ -93,10 +97,7 @@ io.on("connection", (socket) => {
     const newPeer = { socketId: socket.id, peerId, peerType, roomName };
     // Updates connections object
     connections[peerId] = newPeer;
-    // Update rooms object
-    if (!(roomName in rooms)) {
-      rooms[roomName] = {};
-    }
+    // Update room object
     rooms[roomName][peerId] = newPeer;
     // Let all other peers know about new peer
     socket.to(roomName).emit("message", {

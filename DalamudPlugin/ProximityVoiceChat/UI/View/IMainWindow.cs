@@ -6,12 +6,16 @@ namespace ProximityVoiceChat.UI.View;
 
 public interface IMainWindow : IPluginUIView
 {
-    public IReactiveProperty<int> SelectedAudioInputDeviceIndex { get; }
-    public IReactiveProperty<int> SelectedAudioOutputDeviceIndex { get; }
-    public IReactiveProperty<bool> PlayingBackMicAudio { get; }
+    public IReactiveProperty<bool> PublicRoom { get; }
+    public IReactiveProperty<string> RoomName { get; }
+    public IReactiveProperty<string> RoomPassword { get; }
 
     public IObservable<Unit> JoinVoiceRoom { get; }
     public IObservable<Unit> LeaveVoiceRoom { get; }
+
+    public IReactiveProperty<int> SelectedAudioInputDeviceIndex { get; }
+    public IReactiveProperty<int> SelectedAudioOutputDeviceIndex { get; }
+    public IReactiveProperty<bool> PlayingBackMicAudio { get; }
 
     public IReactiveProperty<float> MasterVolume { get; }
     public IReactiveProperty<AudioFalloffModel.FalloffType> AudioFalloffType { get; }
@@ -19,9 +23,6 @@ public interface IMainWindow : IPluginUIView
     public IReactiveProperty<float> AudioFalloffMaximumDistance { get; }
     public IReactiveProperty<float> AudioFalloffFactor { get; }
     public IReactiveProperty<bool> MuteDeadPlayers { get; }
-
-    public IReactiveProperty<string> AliveStateSourceName { get; }
-    public IReactiveProperty<string> DeadStateSourceName { get; }
 
     public IReactiveProperty<bool> PrintLogsToChat { get; }
     public IReactiveProperty<int> MinimumVisibleLogLevel { get; }

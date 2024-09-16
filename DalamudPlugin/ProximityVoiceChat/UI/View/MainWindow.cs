@@ -24,8 +24,9 @@ public class MainWindow : Window, IMainWindow, IDisposable
         set => this.visible = value;
     }
 
-    public IReactiveProperty<int> SelectedAudioInputDeviceIndex { get; } = new ReactiveProperty<int>(-1);
-    public IReactiveProperty<int> SelectedAudioOutputDeviceIndex { get; } = new ReactiveProperty<int>(-1);
+    public IReactiveProperty<bool> PublicRoom { get; } = new ReactiveProperty<bool>();
+    public IReactiveProperty<string> RoomName { get; } = new ReactiveProperty<string>(string.Empty);
+    public IReactiveProperty<string> RoomPassword { get; } = new ReactiveProperty<string>(string.Empty);
 
     public IReactiveProperty<bool> PlayingBackMicAudio { get; } = new ReactiveProperty<bool>();
 
@@ -34,22 +35,15 @@ public class MainWindow : Window, IMainWindow, IDisposable
     private readonly ISubject<Unit> leaveVoiceRoom = new Subject<Unit>();
     public IObservable<Unit> LeaveVoiceRoom => leaveVoiceRoom.AsObservable();
 
+    public IReactiveProperty<int> SelectedAudioInputDeviceIndex { get; } = new ReactiveProperty<int>(-1);
+    public IReactiveProperty<int> SelectedAudioOutputDeviceIndex { get; } = new ReactiveProperty<int>(-1);
+
     public IReactiveProperty<float> MasterVolume { get; } = new ReactiveProperty<float>();
     public IReactiveProperty<AudioFalloffModel.FalloffType> AudioFalloffType { get; } = new ReactiveProperty<AudioFalloffModel.FalloffType>();
     public IReactiveProperty<float> AudioFalloffMinimumDistance { get; } = new ReactiveProperty<float>();
     public IReactiveProperty<float> AudioFalloffMaximumDistance { get; } = new ReactiveProperty<float>();
     public IReactiveProperty<float> AudioFalloffFactor { get; } = new ReactiveProperty<float>();
     public IReactiveProperty<bool> MuteDeadPlayers { get; } = new ReactiveProperty<bool>();
-
-    public IReactiveProperty<string> AliveStateSourceName { get; }
-        = new ReactiveProperty<string>(string.Empty, ReactivePropertyMode.DistinctUntilChanged);
-    public IReactiveProperty<string> DeadStateSourceName { get; }
-        = new ReactiveProperty<string>(string.Empty, ReactivePropertyMode.DistinctUntilChanged);
-
-    private readonly ISubject<Unit> testAlive = new Subject<Unit>();
-    public IObservable<Unit> TestAlive => testAlive.AsObservable();
-    private readonly ISubject<Unit> testDead = new Subject<Unit>();
-    public IObservable<Unit> TestDead => testDead.AsObservable();
 
     public IReactiveProperty<bool> PrintLogsToChat { get; }
         = new ReactiveProperty<bool>(mode: ReactivePropertyMode.DistinctUntilChanged);
@@ -58,7 +52,6 @@ public class MainWindow : Window, IMainWindow, IDisposable
 
     private string[]? inputDevices;
     private string[]? outputDevices;
-    private bool publicRoom = true;
 
     private readonly WindowSystem windowSystem;
     private readonly AudioDeviceController audioDeviceController;
@@ -111,14 +104,14 @@ public class MainWindow : Window, IMainWindow, IDisposable
             ImGui.TableSetupColumn("Private", ImGuiTableColumnFlags.WidthFixed, 155);
 
             ImGui.TableNextColumn();
-            if (ImGui.Selectable("Public room", this.publicRoom))
+            if (ImGui.Selectable("Public room", this.PublicRoom.Value))
             {
-                this.publicRoom = true;
+                this.PublicRoom.Value = true;
             }
             ImGui.TableNextColumn();
-            if (ImGui.Selectable("Private room", !this.publicRoom))
+            if (ImGui.Selectable("Private room", !this.PublicRoom.Value))
             {
-                this.publicRoom = false;
+                this.PublicRoom.Value = false;
             }
 
             ImGui.EndTable();
@@ -126,7 +119,7 @@ public class MainWindow : Window, IMainWindow, IDisposable
 
         //var indent = 10;
         //ImGui.Indent(indent);
-        if (this.publicRoom)
+        if (this.PublicRoom.Value)
         {
             if (this.voiceRoomManager.InRoom) { ImGui.BeginDisabled(); }
             if (ImGui.Button("Join Public Voice Room"))
@@ -137,26 +130,34 @@ public class MainWindow : Window, IMainWindow, IDisposable
         }
         else
         {
-            string roomName = "";
-            if (ImGui.InputText("Room Name", ref roomName, 100))
+            string roomName = this.RoomName.Value;
+            if (ImGui.InputText("Room Name", ref roomName, 100, ImGuiInputTextFlags.AutoSelectAll))
             {
-
+                this.RoomName.Value = roomName;
             }
             ImGui.SameLine(); HelpMarker("Leave blank to join your own room");
 
-            string roomPassword = "0000";
-            ImGui.PushItemWidth(40);
+            string roomPassword = this.RoomPassword.Value;
+            ImGui.PushItemWidth(38);
             if (ImGui.InputText("Room Password (up to 4 digits)", ref roomPassword, 4, ImGuiInputTextFlags.CharsDecimal | ImGuiInputTextFlags.AutoSelectAll))
             {
-
+                this.RoomPassword.Value = roomPassword;
             }
             ImGui.PopItemWidth();
+            if (!ImGui.IsItemActive())
+            {
+                while (roomPassword.Length < 4)
+                {
+                    roomPassword = "0" + roomPassword;
+                }
+                this.RoomPassword.Value = roomPassword;
+            }
             ImGui.SameLine(); HelpMarker("Sets the password if joining your own room");
 
             if (this.voiceRoomManager.InRoom) { ImGui.BeginDisabled(); }
             if (ImGui.Button("Join Private Voice Room"))
             {
-
+                this.joinVoiceRoom.OnNext(Unit.Default);
             }
             if (this.voiceRoomManager.InRoom) { ImGui.EndDisabled(); }
         }
@@ -326,7 +327,15 @@ public class MainWindow : Window, IMainWindow, IDisposable
     private void DrawVoiceRoom()
     {
         ImGui.AlignTextToFramePadding();
-        ImGui.Text("Voice Room");
+        var roomName = this.voiceRoomManager.SignalingChannel?.RoomName;
+        if (string.IsNullOrEmpty(roomName))
+        {
+            ImGui.Text("Public Voice Room");
+        }
+        else
+        {
+            ImGui.Text($"{roomName}'s Voice Room");
+        }
         if (this.voiceRoomManager.InRoom)
         {
             ImGui.SameLine();

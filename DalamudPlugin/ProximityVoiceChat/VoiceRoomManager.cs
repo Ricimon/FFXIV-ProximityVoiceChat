@@ -5,6 +5,7 @@ using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using Microsoft.MixedReality.WebRTC;
 using NAudio.Wave;
+using ProximityVoiceChat.Extensions;
 using ProximityVoiceChat.Log;
 using ProximityVoiceChat.WebRTC;
 using System;
@@ -36,11 +37,11 @@ public class VoiceRoomManager : IDisposable
             {
                 if (this.WebRTCManager != null)
                 {
-                    return this.WebRTCManager.Peers.Keys.Prepend(GetLocalPlayerName() ?? "null");
+                    return this.WebRTCManager.Peers.Keys.Prepend(this.localPlayerFullName ?? "null");
                 }
                 else
                 {
-                    return [GetLocalPlayerName() ?? "null"];
+                    return [this.localPlayerFullName ?? "null"];
                 }
             }
             else
@@ -57,6 +58,7 @@ public class VoiceRoomManager : IDisposable
 
     private const string PeerType = "player";
 
+    private string? localPlayerFullName;
     private bool isDisposed;
 
     private readonly IDalamudPluginInterface pluginInterface;
@@ -70,23 +72,11 @@ public class VoiceRoomManager : IDisposable
 
     private readonly LoadConfig loadConfig;
     private readonly string signalingServerUrl = "http://ffxiv.ricimon.com";
-    //private string signalingServerUrl = "http://192.168.1.101:3030";
+    //private readonly string signalingServerUrl = "http://192.168.1.101:3030";
     private readonly string stunServerUrl = "stun:ffxiv.ricimon.com:3478";
     private readonly string turnServerUrl = "turn:ffxiv.ricimon.com:3478";
     private readonly PeriodicTimer volumeUpdateTimer = new(TimeSpan.FromMilliseconds(100));
     private readonly SemaphoreSlim frameworkThreadSemaphore = new(1, 1);
-
-    public static string? GetPlayerName(IPlayerCharacter playerCharacter)
-    {
-        string playerName = playerCharacter.Name.TextValue;
-        var homeWorld = playerCharacter.HomeWorld.GameData;
-        if (homeWorld != null)
-        {
-            playerName += $"@{homeWorld.Name.RawString}";
-        }
-
-        return playerName;
-    }
 
     public VoiceRoomManager(IDalamudPluginInterface pluginInterface,
         IClientState clientState,
@@ -146,7 +136,10 @@ public class VoiceRoomManager : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    public void JoinVoiceRoom()
+    /// <summary>
+    /// Use empty string roomName to join public room
+    /// </summary>
+    public void JoinVoiceRoom(string roomName, string roomPassword)
     {
         if (this.InRoom)
         {
@@ -156,7 +149,7 @@ public class VoiceRoomManager : IDisposable
 
         this.logger.Debug("Attempting to join voice room.");
 
-        var playerName = GetLocalPlayerName();
+        var playerName = this.clientState.GetLocalPlayerFullName();
         if (playerName == null)
         {
             this.logger.Error("Player name is null, cannot join voice room.");
@@ -164,6 +157,7 @@ public class VoiceRoomManager : IDisposable
         }
 
         InRoom = true;
+        this.localPlayerFullName = playerName;
 
         this.logger.Trace("Creating SignalingChannel class with peerId {0}", playerName);
         this.SignalingChannel ??= new SignalingChannel(playerName,
@@ -187,7 +181,7 @@ public class VoiceRoomManager : IDisposable
         this.SignalingChannel.OnDisconnected += OnSignalingServerDisconnected;
 
         this.logger.Debug("Attempting to connect to signaling channel.");
-        this.SignalingChannel.ConnectAsync().SafeFireAndForget(ex =>
+        this.SignalingChannel.ConnectAsync(roomName, roomPassword).SafeFireAndForget(ex =>
         {
             if (ex is not OperationCanceledException)
             {
@@ -206,6 +200,7 @@ public class VoiceRoomManager : IDisposable
         this.logger.Trace("Attempting to leave voice room.");
 
         InRoom = false;
+        this.localPlayerFullName = null;
 
         this.audioDeviceController.AudioRecordingIsRequested = false;
         this.audioDeviceController.AudioPlaybackIsRequested = false;
@@ -217,16 +212,6 @@ public class VoiceRoomManager : IDisposable
             this.SignalingChannel.OnDisconnected -= OnSignalingServerDisconnected;
             this.SignalingChannel?.DisconnectAsync().SafeFireAndForget(ex => this.logger.Error(ex.ToString()));
         }
-    }
-
-    public string? GetLocalPlayerName()
-    {
-        var localPlayer = this.clientState.LocalPlayer;
-        if (localPlayer == null)
-        {
-            return null;
-        }
-        return GetPlayerName(localPlayer);
     }
 
     private void UpdatePlayerVolumes()
@@ -260,7 +245,7 @@ public class VoiceRoomManager : IDisposable
             var players = this.objectTable.Where(go => go.ObjectKind == ObjectKind.Player).OfType<IPlayerCharacter>();
             foreach (var player in players)
             {
-                var playerName = GetPlayerName(player);
+                var playerName = player.GetPlayerFullName();
                 if (playerName != null &&
                     this.WebRTCManager.Peers.TryGetValue(playerName, out var peer) &&
                     peer.PeerConnection.DataChannels.Count > 0)

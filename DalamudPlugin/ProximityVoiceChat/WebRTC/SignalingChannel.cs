@@ -164,7 +164,8 @@ public class SignalingChannel : IDisposable
                 this.logger.Debug("Connected to signaling server.");
             }
             this.OnConnected?.Invoke();
-            this.socket.EmitAsync("ready", this.peerId, this.peerType).SafeFireAndForget(ex => this.logger.Error(ex.ToString()));
+            this.socket.EmitAsync("ready", this.peerId, this.peerType, this.RoomName, this.roomPassword)
+                .SafeFireAndForget(ex => this.logger.Error(ex.ToString()));
         }
         catch (Exception ex)
         {

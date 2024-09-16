@@ -78,19 +78,39 @@ public class WebRTCManager : IDisposable
 
     private void OnMessage(SocketIOResponse response)
     {
+        // Add peer objects immediately to reflect in UI
+        SignalMessage message;
+        SignalMessage.SignalPayload payload;
+        try
+        {
+            message = response.GetValue<SignalMessage>();
+            payload = message.payload;
+            if (payload.action == "open")
+            {
+                foreach (var c in payload.connections)
+                {
+                    AddPeer(c.peerId, c.peerType, payload.bePolite);
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            this.logger.Error(e.ToString());
+            return;
+        }
+
+        // Then run any procedures
         Task.Run(async delegate
         {
             await onMessageSemaphore.WaitAsync();
             try
             {
-                var message = response.GetValue<SignalMessage>();
-                var payload = message.payload;
                 switch (payload.action)
                 {
                     case "open":
                         foreach (var c in payload.connections)
                         {
-                            await AddPeer(c.peerId, c.peerType, payload.bePolite, cancellationToken: this.disconnectCts!.Token);
+                            await InitializePeer(c.peerId, cancellationToken: this.disconnectCts!.Token);
                         }
                         break;
                     case "close":
@@ -138,7 +158,7 @@ public class WebRTCManager : IDisposable
         }
     }
 
-    private async Task AddPeer(string peerId, string peerType, bool polite, bool canTrickleIceCandidates = true, CancellationToken cancellationToken = default)
+    private void AddPeer(string peerId, string peerType, bool polite, bool canTrickleIceCandidates = true)
     {
         if (peers.ContainsKey(peerId))
         {
@@ -162,7 +182,16 @@ public class WebRTCManager : IDisposable
                 IsSettingRemoteAnswerPending = false,
                 CanTrickleIceCandidates = canTrickleIceCandidates,
             });
-            logger.Debug("Added {0} as a peer.", peerId);
+            this.logger.Debug("Added {0} as a peer.", peerId);
+        }
+    }
+
+    private async Task InitializePeer(string peerId, CancellationToken cancellationToken = default)
+    {
+        if (peers.TryGetValue(peerId, out var peer))
+        {
+            this.logger.Debug("Initializing peer connection to {0}", peerId);
+            var peerConnection = peer.PeerConnection;
             await peerConnection.InitializeAsync(this.config, cancellationToken);
 
             if (cancellationToken.IsCancellationRequested)
@@ -174,6 +203,7 @@ public class WebRTCManager : IDisposable
             // Create a data channel if needed
             if (options.EnableDataChannel)
             {
+                this.logger.Debug("Creating data channel for peer {0}", peerId);
                 await peerConnection.AddDataChannelAsync(0, $"{peerId}Channel", true, false, cancellationToken);
 
                 if (cancellationToken.IsCancellationRequested)
@@ -185,8 +215,8 @@ public class WebRTCManager : IDisposable
                 try
                 {
                     var handler = options.DataChannelHandlerFactory!.CreateHandler();
-                    handler.RegisterDataChannel(ourPeerId, ourPeerType, peers[peerId]);
-                    peers[peerId].DataChannelHandler = handler;
+                    handler.RegisterDataChannel(ourPeerId, ourPeerType, peer);
+                    peer.DataChannelHandler = handler;
                 }
                 catch (Exception e)
                 {
@@ -194,7 +224,11 @@ public class WebRTCManager : IDisposable
                 }
             }
             // Update the negotiation logic of the peer
-            this.UpdateNegotiationLogic(this.peers[peerId]);
+            this.UpdateNegotiationLogic(peer);
+        }
+        else
+        {
+            this.logger.Error("Could not find peer {0} to initialize", peerId);
         }
     }
 
@@ -210,6 +244,7 @@ public class WebRTCManager : IDisposable
         peerConnection.IceStateChanged += (IceConnectionState newState) =>
         {
             this.logger.Debug("ICE state: {0}", newState);
+            // TODO: An ICE state of closed should be marked as Connection Error in the UI
         };
 
         peerConnection.IceCandidateReadytoSend += (IceCandidate candidate) =>

@@ -10,6 +10,11 @@ namespace ProximityVoiceChat
     {
         public int Version { get; set; } = 0;
 
+        // Saved UI inputs
+        public bool PublicRoom { get; set; }
+        public string RoomName { get; set; } = string.Empty;
+        public string RoomPassword { get; set; } = string.Empty;
+
         public int SelectedAudioInputDeviceIndex { get; set; } = -1;
         public int SelectedAudioOutputDeviceIndex { get; set; } = -1;
 

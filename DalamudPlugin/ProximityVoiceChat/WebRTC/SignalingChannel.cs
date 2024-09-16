@@ -15,12 +15,14 @@ public class SignalingChannel : IDisposable
 {
     public bool Connected => !(this.disconnectCts?.IsCancellationRequested ?? false) && this.socket.Connected;
     public bool Disconnected { get; private set; }
+    public string? RoomName { get; private set; }
 
     public event Action? OnConnected;
     public event Action<SocketIOResponse>? OnMessage;
     public event Action? OnDisconnected;
 
     private CancellationTokenSource? disconnectCts;
+    private string? roomPassword;
 
     private readonly string peerId;
     private readonly string peerType;
@@ -49,11 +51,18 @@ public class SignalingChannel : IDisposable
         this.AddListeners();
     }
 
-    public Task ConnectAsync()
+    public Task ConnectAsync(string roomName = "", string roomPassword = "")
     {
+        if (this.socket.Connected)
+        {
+            this.logger.Error("Signaling server is already connected.");
+            return Task.CompletedTask;
+        }
         this.disconnectCts?.Dispose();
         this.disconnectCts = new();
         this.Disconnected = false;
+        this.RoomName = roomName;
+        this.roomPassword = roomPassword;
         return this.socket.ConnectAsync(this.disconnectCts.Token);
     }
 
@@ -124,7 +133,7 @@ public class SignalingChannel : IDisposable
             this.socket.OnError += this.OnError;
             this.socket.OnReconnected += this.OnReconnect;
             this.socket.On("message", this.OnMessageCallback);
-            this.socket.On("uniquenessError", this.OnUniquenessError);
+            this.socket.On("serverDisconnect", this.OnServerDisconnect);
         }
     }
 
@@ -137,7 +146,7 @@ public class SignalingChannel : IDisposable
             this.socket.OnError -= this.OnError;
             this.socket.OnReconnected -= this.OnReconnect;
             this.socket.Off("message");
-            this.socket.Off("uniquenessError");
+            this.socket.Off("serverDisconnect");
         }
     }
 
@@ -207,16 +216,16 @@ public class SignalingChannel : IDisposable
         this.OnMessage?.Invoke(response);
     }
 
-    private void OnUniquenessError(SocketIOResponse response)
+    private void OnServerDisconnect(SocketIOResponse response)
     {
         if (!Connected)
         {
             return;
         }
 
-        this.logger.Error("Uniqueness ERROR: {0}", response);
+        this.logger.Error("Signaling server disconnect: {0}", response);
 
-        // This error auto disconnects the client, but does not immediately set the socket state to not Connected.
+        // This message auto disconnects the client, but does not immediately set the socket state to not Connected.
         // So we need to dispose and nullify the token to avoid calling Cancel on the token, which for some reason
         // throws an exception due to cancellation token subscriptions.
         this.disconnectCts?.Dispose();

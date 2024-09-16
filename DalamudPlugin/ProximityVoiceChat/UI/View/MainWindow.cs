@@ -58,6 +58,7 @@ public class MainWindow : Window, IMainWindow, IDisposable
 
     private string[]? inputDevices;
     private string[]? outputDevices;
+    private bool publicRoom = true;
 
     private readonly WindowSystem windowSystem;
     private readonly AudioDeviceController audioDeviceController;
@@ -104,135 +105,109 @@ public class MainWindow : Window, IMainWindow, IDisposable
 
     private void DrawContents()
     {
-        if (ImGui.BeginTable("AudioDevices", 2))
+        if(ImGui.BeginTable("JoinSettings", 2))
         {
-            ImGui.TableSetupColumn("AudioDevicesCol1", ImGuiTableColumnFlags.WidthFixed, 80);
-            ImGui.TableSetupColumn("AudioDevicesCol2", ImGuiTableColumnFlags.WidthFixed, 230);
+            ImGui.TableSetupColumn("Public", ImGuiTableColumnFlags.WidthFixed, 155);
+            ImGui.TableSetupColumn("Private", ImGuiTableColumnFlags.WidthFixed, 155);
 
-            ImGui.TableNextRow(); ImGui.TableNextColumn();
-            //var rightPad = 110;
-
-            ImGui.AlignTextToFramePadding();
-            ImGui.Text("Input Device"); ImGui.TableNextColumn();
-            ImGui.SetNextItemWidth(ImGui.GetColumnWidth());
-            this.inputDevices ??= this.audioDeviceController.GetAudioRecordingDevices().ToArray();
-            var inputDeviceIndex = this.SelectedAudioInputDeviceIndex.Value + 1;
-            if (ImGui.Combo("##InputDevice", ref inputDeviceIndex, this.inputDevices, this.inputDevices.Length))
+            ImGui.TableNextColumn();
+            if (ImGui.Selectable("Public room", this.publicRoom))
             {
-                this.SelectedAudioInputDeviceIndex.Value = inputDeviceIndex - 1;
+                this.publicRoom = true;
+            }
+            ImGui.TableNextColumn();
+            if (ImGui.Selectable("Private room", !this.publicRoom))
+            {
+                this.publicRoom = false;
             }
 
-            ImGui.TableNextRow(); ImGui.TableNextColumn();
-            ImGui.AlignTextToFramePadding();
-            ImGui.Text("Output Device"); ImGui.TableNextColumn();
-            ImGui.SetNextItemWidth(ImGui.GetColumnWidth());
-            this.outputDevices ??= this.audioDeviceController.GetAudioPlaybackDevices().ToArray();
-            var outputDeviceIndex = this.SelectedAudioOutputDeviceIndex.Value + 1;
-            if (ImGui.Combo("##OutputDevice", ref outputDeviceIndex, this.outputDevices, this.outputDevices.Length))
-            {
-                this.SelectedAudioOutputDeviceIndex.Value = outputDeviceIndex - 1;
-            }
             ImGui.EndTable();
         }
-        if (ImGui.Button(this.PlayingBackMicAudio.Value ? "Stop Mic Playback" : "Test Mic Playback"))
-        {
-            this.PlayingBackMicAudio.Value = !this.PlayingBackMicAudio.Value;
-        }
 
-        ImGui.Spacing();
-
-        ImGui.AlignTextToFramePadding();
-        ImGui.Text("Voice Room"); // ---------------
-        ImGui.SameLine();
-        if (ImGui.Button(this.voiceRoomManager.InRoom ? "Leave" : "Join"))
+        //var indent = 10;
+        //ImGui.Indent(indent);
+        if (this.publicRoom)
         {
-            if (this.voiceRoomManager.InRoom)
-            {
-                this.leaveVoiceRoom.OnNext(Unit.Default);
-            }
-            else
+            if (this.voiceRoomManager.InRoom) { ImGui.BeginDisabled(); }
+            if (ImGui.Button("Join Public Voice Room"))
             {
                 this.joinVoiceRoom.OnNext(Unit.Default);
             }
+            if (this.voiceRoomManager.InRoom) { ImGui.EndDisabled(); }
         }
-
-        var indent = 10;
-        ImGui.Indent(indent);
-
-        foreach (var (playerName, index) in this.voiceRoomManager.PlayersInVoiceRoom.Select((p, i) => (p, i)))
+        else
         {
-            Vector4 color = Vector4Colors.Red;
-            string tooltip = "Connection Error";
-
-            // Assume first player is always the local player
-            if (index == 0)
+            string roomName = "";
+            if (ImGui.InputText("Room Name", ref roomName, 100))
             {
-                var signalingChannel = this.voiceRoomManager.SignalingChannel;
-                if (signalingChannel != null)
-                {
-                    if (signalingChannel.Connected)
-                    {
-                        color = Vector4Colors.Green;
-                        tooltip = "Connected";
-                    }
-                    else if (!signalingChannel.Disconnected)
-                    {
-                        color = Vector4Colors.Orange;
-                        tooltip = "Connecting";
-                    }
-                }
-            }
-            else
-            {
-                if (this.voiceRoomManager.WebRTCManager != null &&
-                    this.voiceRoomManager.WebRTCManager.Peers.TryGetValue(playerName, out var peer))
-                {
-                    DataChannel? dataChannel = null;
-                    if (peer.PeerConnection.DataChannels.Count > 0)
-                    {
-                        dataChannel = peer.PeerConnection.DataChannels[0];
-                    }
 
-                    if (dataChannel != null && dataChannel.State == DataChannel.ChannelState.Open)
-                    {
-                        color = Vector4Colors.Green;
-                        tooltip = "Connected";
-                    }
-                    else if (dataChannel == null || dataChannel.State == DataChannel.ChannelState.Connecting)
-                    {
-                        color = Vector4Colors.Orange;
-                        tooltip = "Connecting";
-                    }
-                }
             }
+            ImGui.SameLine(); HelpMarker("Leave blank to join your own room");
 
-            // Connectivity indicator
-            var drawList = ImGui.GetWindowDrawList();
-            var pos = ImGui.GetCursorScreenPos();
-            var h = ImGui.GetTextLineHeightWithSpacing();
-            //pos += new Vector2(ImGui.GetWindowSize().X - 110, -h);
-            var radius = 0.3f * h;
-            pos += new Vector2(0, h / 2f);
-            drawList.AddCircleFilled(pos, radius, ImGui.ColorConvertFloat4ToU32(color));
-            if (Vector2.Distance(ImGui.GetMousePos(), pos) < radius)
+            string roomPassword = "0000";
+            ImGui.PushItemWidth(40);
+            if (ImGui.InputText("Room Password (up to 4 digits)", ref roomPassword, 4, ImGuiInputTextFlags.CharsDecimal | ImGuiInputTextFlags.AutoSelectAll))
             {
-                ImGui.SetTooltip(tooltip);
-            }
-            pos += new Vector2(radius + 3, -h / 2.25f);
-            ImGui.SetCursorScreenPos(pos);
 
-            var playerLabel = new StringBuilder(playerName);
-            if (index > 0 && this.voiceRoomManager.TrackedPlayers.TryGetValue(playerName, out var tp))
-            {
-                playerLabel.Append(" (");
-                playerLabel.Append(float.IsNaN(tp.Distance) ? '?' : tp.Distance.ToString("F1"));
-                playerLabel.Append($"y, {tp.Volume:F2})");
             }
-            ImGui.Text(playerLabel.ToString());
+            ImGui.PopItemWidth();
+            ImGui.SameLine(); HelpMarker("Sets the password if joining your own room");
+
+            if (this.voiceRoomManager.InRoom) { ImGui.BeginDisabled(); }
+            if (ImGui.Button("Join Private Voice Room"))
+            {
+
+            }
+            if (this.voiceRoomManager.InRoom) { ImGui.EndDisabled(); }
+        }
+        //ImGui.Indent(-indent);
+
+        ImGui.Dummy(new Vector2(0.0f, 5.0f)); // ---------------
+
+        if (this.voiceRoomManager.InRoom)
+        {
+            DrawVoiceRoom();
+            ImGui.Dummy(new Vector2(0.0f, 5.0f)); // ---------------
         }
 
-        ImGui.Indent(-indent);
-        ImGui.Spacing();
+        if (ImGui.CollapsingHeader("Audio Devices"))
+        {
+            if (ImGui.BeginTable("AudioDevices", 2))
+            {
+                ImGui.TableSetupColumn("AudioDevicesCol1", ImGuiTableColumnFlags.WidthFixed, 80);
+                ImGui.TableSetupColumn("AudioDevicesCol2", ImGuiTableColumnFlags.WidthFixed, 230);
+
+                ImGui.TableNextRow(); ImGui.TableNextColumn();
+                //var rightPad = 110;
+
+                ImGui.AlignTextToFramePadding();
+                ImGui.Text("Input Device"); ImGui.TableNextColumn();
+                ImGui.SetNextItemWidth(ImGui.GetColumnWidth());
+                this.inputDevices ??= this.audioDeviceController.GetAudioRecordingDevices().ToArray();
+                var inputDeviceIndex = this.SelectedAudioInputDeviceIndex.Value + 1;
+                if (ImGui.Combo("##InputDevice", ref inputDeviceIndex, this.inputDevices, this.inputDevices.Length))
+                {
+                    this.SelectedAudioInputDeviceIndex.Value = inputDeviceIndex - 1;
+                }
+
+                ImGui.TableNextRow(); ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding();
+                ImGui.Text("Output Device"); ImGui.TableNextColumn();
+                ImGui.SetNextItemWidth(ImGui.GetColumnWidth());
+                this.outputDevices ??= this.audioDeviceController.GetAudioPlaybackDevices().ToArray();
+                var outputDeviceIndex = this.SelectedAudioOutputDeviceIndex.Value + 1;
+                if (ImGui.Combo("##OutputDevice", ref outputDeviceIndex, this.outputDevices, this.outputDevices.Length))
+                {
+                    this.SelectedAudioOutputDeviceIndex.Value = outputDeviceIndex - 1;
+                }
+
+                ImGui.EndTable();
+            }
+            if (ImGui.Button(this.PlayingBackMicAudio.Value ? "Stop Mic Playback" : "Test Mic Playback"))
+            {
+                this.PlayingBackMicAudio.Value = !this.PlayingBackMicAudio.Value;
+            }
+        }
 
         if (ImGui.CollapsingHeader("Audio Falloff Settings"))
         {
@@ -320,60 +295,6 @@ public class MainWindow : Window, IMainWindow, IDisposable
             }
         }
 
-        //ImGui.Text("OBS Settings"); // ---------------
-        //ImGui.Indent(indent);
-
-        //if (ImGui.BeginTable("ObsSettings", 2))
-        //{
-        //    ImGui.TableSetupColumn("ObsSettingsCol1", ImGuiTableColumnFlags.WidthFixed, 150);
-        //    ImGui.TableNextRow(); ImGui.TableNextColumn();
-        //    var rightPad = 30;
-        //    var aliveStateSourceName = this.AliveStateSourceName.Value;
-        //    var aliveStateLabel = "Alive image source name";
-        //    ImGui.Text(aliveStateLabel); ImGui.TableNextColumn();
-        //    ImGui.SetNextItemWidth(ImGui.GetColumnWidth() - rightPad);
-        //    if (ImGui.InputText($"##{aliveStateLabel}", ref aliveStateSourceName, 100))
-        //    {
-        //        this.AliveStateSourceName.Value = aliveStateSourceName;
-        //    }
-        //    ImGui.TableNextRow(); ImGui.TableNextColumn();
-        //    var deadStateSourceName = this.DeadStateSourceName.Value;
-        //    var deadStateLabel = "Dead image source name";
-        //    ImGui.Text(deadStateLabel); ImGui.TableNextColumn();
-        //    ImGui.SetNextItemWidth(ImGui.GetColumnWidth() - rightPad);
-        //    if (ImGui.InputText($"##{deadStateLabel}", ref deadStateSourceName, 100))
-        //    {
-        //        this.DeadStateSourceName.Value = deadStateSourceName;
-        //    }
-        //    ImGui.EndTable();
-        //}
-
-        //ImGui.Indent(-indent);
-        //ImGui.Spacing();
-
-        //ImGui.Text("Debug"); // ---------------
-        //ImGui.Indent(indent);
-
-        //ImGui.Text("Character state:");
-        //ImGui.SameLine();
-        //ImGui.Text(this.IsCharacterAlive ? "Alive" : "Dead");
-        //ImGuiExtensions.SetDisabled(!this.ObsConnected);
-        //if (ImGui.Button("Test Alive"))
-        //{
-        //    this.testAlive.OnNext(Unit.Default);
-        //}
-        //ImGui.SameLine();
-        //if (ImGui.Button("Test Dead"))
-        //{
-        //    this.testDead.OnNext(Unit.Default);
-        //}
-        //ImGuiExtensions.SetDisabled(false);
-        //ImGui.SameLine();
-        //ImGui.Text("(OBS only)");
-
-        //ImGui.Indent(-indent);
-        //ImGui.Spacing();
-
         if (ImGui.BeginTable("SeparatorLine1", 1, ImGuiTableFlags.BordersInnerH))
         {
             ImGui.TableNextRow(); ImGui.TableNextColumn(); ImGui.Spacing();
@@ -399,6 +320,110 @@ public class MainWindow : Window, IMainWindow, IDisposable
             }
 
             ImGui.EndTable();
+        }
+    }
+
+    private void DrawVoiceRoom()
+    {
+        ImGui.AlignTextToFramePadding();
+        ImGui.Text("Voice Room");
+        if (this.voiceRoomManager.InRoom)
+        {
+            ImGui.SameLine();
+            if (ImGui.Button("Leave"))
+            {
+                this.leaveVoiceRoom.OnNext(Unit.Default);
+            }
+        }
+
+        var indent = 10;
+        ImGui.Indent(indent);
+
+        foreach (var (playerName, index) in this.voiceRoomManager.PlayersInVoiceRoom.Select((p, i) => (p, i)))
+        {
+            Vector4 color = Vector4Colors.Red;
+            string tooltip = "Connection Error";
+
+            // Assume first player is always the local player
+            if (index == 0)
+            {
+                var signalingChannel = this.voiceRoomManager.SignalingChannel;
+                if (signalingChannel != null)
+                {
+                    if (signalingChannel.Connected)
+                    {
+                        color = Vector4Colors.Green;
+                        tooltip = "Connected";
+                    }
+                    else if (!signalingChannel.Disconnected)
+                    {
+                        color = Vector4Colors.Orange;
+                        tooltip = "Connecting";
+                    }
+                }
+            }
+            else
+            {
+                if (this.voiceRoomManager.WebRTCManager != null &&
+                    this.voiceRoomManager.WebRTCManager.Peers.TryGetValue(playerName, out var peer))
+                {
+                    DataChannel? dataChannel = null;
+                    if (peer.PeerConnection.DataChannels.Count > 0)
+                    {
+                        dataChannel = peer.PeerConnection.DataChannels[0];
+                    }
+
+                    if (dataChannel != null && dataChannel.State == DataChannel.ChannelState.Open)
+                    {
+                        color = Vector4Colors.Green;
+                        tooltip = "Connected";
+                    }
+                    else if (dataChannel == null || dataChannel.State == DataChannel.ChannelState.Connecting)
+                    {
+                        color = Vector4Colors.Orange;
+                        tooltip = "Connecting";
+                    }
+                }
+            }
+
+            // Connectivity indicator
+            var drawList = ImGui.GetWindowDrawList();
+            var pos = ImGui.GetCursorScreenPos();
+            var h = ImGui.GetTextLineHeightWithSpacing();
+            //pos += new Vector2(ImGui.GetWindowSize().X - 110, -h);
+            var radius = 0.3f * h;
+            pos += new Vector2(0, h / 2f);
+            drawList.AddCircleFilled(pos, radius, ImGui.ColorConvertFloat4ToU32(color));
+            if (Vector2.Distance(ImGui.GetMousePos(), pos) < radius)
+            {
+                ImGui.SetTooltip(tooltip);
+            }
+            pos += new Vector2(radius + 3, -h / 2.25f);
+            ImGui.SetCursorScreenPos(pos);
+
+            var playerLabel = new StringBuilder(playerName);
+            if (index > 0 && this.voiceRoomManager.TrackedPlayers.TryGetValue(playerName, out var tp))
+            {
+                playerLabel.Append(" (");
+                playerLabel.Append(float.IsNaN(tp.Distance) ? '?' : tp.Distance.ToString("F1"));
+                playerLabel.Append($"y, {tp.Volume:F2})");
+            }
+            ImGui.Text(playerLabel.ToString());
+        }
+
+        ImGui.Indent(-indent);
+    }
+
+    private static void HelpMarker(string description)
+    {
+        ImGui.TextDisabled("(?)");
+        if (ImGui.IsItemHovered())
+        {
+            ImGui.BeginTooltip();
+            ImGui.PushTextWrapPos(ImGui.GetFontSize() * 35.0f);
+            ImGui.TextUnformatted(description);
+            ImGui.PopTextWrapPos();
+            ImGui.EndTooltip();
         }
     }
 }

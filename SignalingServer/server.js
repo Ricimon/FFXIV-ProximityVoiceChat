@@ -1,9 +1,10 @@
 // IMPORTS
-const http = require("http");
-const express = require("express")
-const socketio = require("socket.io");
-const cors = require("cors");
-const sirv = require("sirv");
+import http from "http";
+import express from "express";
+import { Server } from "socket.io";
+import cors from "cors";
+import sirv from "sirv";
+import { JSONFilePreset } from 'lowdb/node';
 
 // ENVIRONMENT VARIABLES
 const PORT = process.env.PORT || 3030;
@@ -14,7 +15,14 @@ const TOKEN = process.env.TOKEN;
 const app = express();
 app.use(express.json(), cors());
 const server = http.createServer(app);
-const io = socketio(server, { cors: {} });
+const io = new Server(server, { cors: {} });
+
+// SETUP DB
+const defaultData = { roomProperties: {} };
+const db = await JSONFilePreset('db.json', defaultData);
+const { roomProperties } = db.data;
+const rooms = { "public": {} };
+const connections = {};
 
 // AUTHENTICATION MIDDLEWARE
 io.use((socket, next) => {
@@ -27,42 +35,82 @@ io.use((socket, next) => {
 });
 
 // API ENDPOINT TO DISPLAY THE CONNECTION TO THE SIGNALING SERVER
-let connections = {};
-app.get("/connections", (req, res) =>{
+app.get("/connections", (req, res) => {
   res.json(Object.values(connections));
+});
+app.get("/rooms", (req, res) => {
+  res.json(rooms);
 });
 
 // MESSAGING LOGIC
 io.on("connection", (socket) => {
   console.log("User connected with id", socket.id);
 
-  socket.on("ready", (peerId, peerType) => {
+  socket.on("ready", async (peerId, peerType, roomName, roomPassword) => {
     // Make sure that the hostname is unique, if the hostname is already in connections, send an error and disconnect
     if (peerId in connections) {
-      socket.emit("uniquenessError", {
+      socket.emit("serverDisconnect", {
         message: `${peerId} is already connected to the signaling server. Please change your peer ID and try again.`,
       });
       socket.disconnect(true);
-    } else {
-      console.log(`Added ${peerId} to connections`);
-      // Let new peer know about all existing peers
-      socket.send({ from: "all", target: peerId, payload: { action: "open", connections: Object.values(connections), bePolite: false  }  }); // The new peer doesn't need to be polite.
-      // Create new peer
-      const newPeer = { socketId: socket.id, peerId, peerType };
-      // Updates connections object
-      connections[peerId] = newPeer;
-      // Let all other peers know about new peer
-      socket.broadcast.emit("message", {
-        from: peerId,
-        target: "all",
-        payload: { action: "open", connections: [newPeer], bePolite: true }, // send connections object with an array containing the only new peer and make all existing peers polite.
-      })
+      return;
     }
+    if (roomName) {
+      // Private room
+      if (peerId === roomName) {
+        // Room owner sets room password
+        roomProperties[roomName] = { password: roomPassword };
+        await db.update(({ roomProperties }) => roomProperties[roomName] = { password: roomPassword });
+      } else {
+        if (!(roomName in roomProperties)) {
+          socket.emit("serverDisconnect", {
+            message: `Cannot connect to room ${roomName}, room does not exist.`,
+          });
+          socket.disconnect(true);
+          return;
+        }
+        if (roomPassword !== roomProperties[roomName].password) {
+          socket.emit("serverDisconnect", {
+            message: `Cannot connect to room ${roomName}, incorrect password.`,
+          });
+          socket.disconnect(true);
+          return;
+        }
+      }
+    } else {
+      roomName = "public";
+    }
+    socket.join(roomName);
+    socket.room = roomName;
+    console.log(`Added ${peerId} to connections, in room ${roomName}`);
+    // Let new peer know about all existing peers in its room
+    socket.send({
+      from: "all",
+      target: peerId,
+      payload: { action: "open", connections: Object.values(rooms[roomName]), bePolite: false } // The new peer doesn't need to be polite.
+    });
+    // Create new peer
+    const newPeer = { socketId: socket.id, peerId, peerType, roomName };
+    // Updates connections object
+    connections[peerId] = newPeer;
+    // Update rooms object
+    if (!(roomName in rooms)) {
+      rooms[roomName] = {};
+    }
+    rooms[roomName][peerId] = newPeer;
+    // Let all other peers know about new peer
+    socket.to(roomName).emit("message", {
+      from: peerId,
+      target: "all",
+      payload: { action: "open", connections: [newPeer], bePolite: true }, // send connections object with an array containing the only new peer and make all existing peers polite.
+    })
   });
+
   socket.on("message", (message) => {
     // Send message to all peers except the sender
-    socket.broadcast.emit("message", message);
+    socket.to(socket.room).emit("message", message);
   });
+
   socket.on("messageOne", (message) => {
     // Send message to a specific targeted peer
     const { target } = message;
@@ -73,18 +121,25 @@ io.on("connection", (socket) => {
       console.log(`Target ${target} not found`);
     }
   });
+
   socket.on("disconnect", () => {
     const disconnectingPeer = Object.values(connections).find((peer) => peer.socketId === socket.id);
     if (disconnectingPeer) {
-      console.log("Disconnected", socket.id, "with peerId", disconnectingPeer.peerId);
+      console.log(`Disconnected ${socket.id} with peerId ${disconnectingPeer.peerId} from room ${socket.room}`);
       // Make all peers close their peer channels
-      socket.broadcast.emit("message", {
+      socket.to(socket.room).emit("message", {
         from: disconnectingPeer.peerId,
         target: "all",
         payload: { action: "close", message: "Peer has left the signaling server" },
       });
       // remove disconnecting peer from connections
       delete connections[disconnectingPeer.peerId];
+      // remove disconnecting peer from rooms
+      delete rooms[socket.room][disconnectingPeer.peerId];
+      // remove room if empty
+      if (socket.room !== "public" && !Object.keys(rooms[socket.room]).length) {
+        delete rooms[socket.room];
+      }
     } else {
       console.log(socket.id, "has disconnected");
     }

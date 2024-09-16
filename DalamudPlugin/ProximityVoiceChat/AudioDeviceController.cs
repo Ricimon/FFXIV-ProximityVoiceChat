@@ -211,7 +211,7 @@ public class AudioDeviceController : IDisposable
     {
         foreach(var channel in this.playbackChannels)
         {
-            channel.Value.VolumeSampleProvider.Volume = this.configuration.MasterVolume;
+            channel.Value.VolumeSampleProvider.Volume = 0.0f;
         }
     }
 

@@ -35,6 +35,7 @@ public class PluginUIContainer : IDalamudHook
     {
         this.pluginInterface.UiBuilder.Draw -= Draw;
         this.pluginInterface.UiBuilder.OpenMainUi -= ShowMainWindow;
+        GC.SuppressFinalize(this);
     }
 
     public void HookToDalamud()

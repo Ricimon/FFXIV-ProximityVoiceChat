@@ -14,8 +14,8 @@ namespace ProximityVoiceChat
         }
 
         public FalloffType Type { get; set; } = FalloffType.InverseDistance;
-        public float MinimumDistance { get; set; } = 1.0f;
-        public float MaximumDistance { get; set; } = 10.0f;
-        public float FalloffFactor { get; set; } = 1.0f;
+        public float MinimumDistance { get; set; } = 5.0f;
+        public float MaximumDistance { get; set; } = 20.0f;
+        public float FalloffFactor { get; set; } = 1.5f;
     }
 }

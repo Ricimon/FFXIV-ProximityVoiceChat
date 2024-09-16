@@ -2,7 +2,8 @@
     "name": "signaling-server",
     "version": "0.0.1",
     "description": "The signaling server for FFXIV-ProximityVoiceChat",
-    "main": "server.js",
+    "exports": "./server.js",
+    "type": "module",
     "author": "Ricimon",
     "license": "MIT",
     "scripts": {
@@ -15,6 +16,7 @@
         "cors": "^2.8.5",
         "env-cmd": "^10.1.0",
         "express": "^4.19.2",
+        "lowdb": "^7.0.1",
         "sirv": "^2.0.4",
         "socket.io": "^4.7.5",
         "socket.io-client": "^4.7.5"

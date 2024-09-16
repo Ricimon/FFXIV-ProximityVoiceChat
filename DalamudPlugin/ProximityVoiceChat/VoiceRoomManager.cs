@@ -240,7 +240,7 @@ public class VoiceRoomManager : IDisposable
             foreach (var tp in this.TrackedPlayers.Values)
             {
                 tp.Distance = float.NaN;
-                tp.Volume = 1.0f;
+                tp.Volume = 0.0f;
             }
 
             // Conditions where volume is impossible/unnecessary to calculate
@@ -305,6 +305,9 @@ public class VoiceRoomManager : IDisposable
             double scale;
             switch (this.configuration.FalloffModel.Type)
             {
+                case AudioFalloffModel.FalloffType.None:
+                    volume = 1.0;
+                    break;
                 case AudioFalloffModel.FalloffType.InverseDistance:
                     distance = Math.Clamp(distance, minDistance, maxDistance);
                     scale = Math.Pow((maxDistance - distance) / (maxDistance - minDistance), distance / maxDistance);
@@ -320,13 +323,13 @@ public class VoiceRoomManager : IDisposable
                     volume = 1 - falloffFactor * (distance - minDistance) / (maxDistance - minDistance);
                     break;
                 default:
-                    volume = 1.0;
+                    volume = 0.0;
                     break;
             }
         }
         catch (Exception e) when (e is DivideByZeroException or ArgumentException)
         {
-            volume = 1.0;
+            volume = 0.0;
         }
         volume = Math.Clamp(volume, 0.0, 1.0);
         return (float)volume;

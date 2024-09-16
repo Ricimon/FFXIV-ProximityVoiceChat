@@ -4,8 +4,8 @@
         "Name": "ProximityVoiceChat",
         "Description": "In-game proximity voice chat",
         "InternalName": "ProximityVoiceChat",
-        "AssemblyVersion": "0.1.9.0",
-        "TestingAssemblyVersion": "0.1.9.0",
+        "AssemblyVersion": "0.2.0.0",
+        "TestingAssemblyVersion": "0.2.0.0",
         "RepoUrl": "https://github.com/Ricimon/FFXIV-ProximityVoiceChat",
         "IconUrl": "https://raw.githubusercontent.com/Ricimon/FFXIV-ProximityVoiceChat/master/images/icon.png",
         "ApplicableVersion": "any",
@@ -14,8 +14,8 @@
         "IsTestingExclusive": "False",
         "LastUpdate": 0,
         "DownloadCount": 0,
-        "DownloadLinkInstall": "https://github.com/Ricimon/FFXIV-ProximityVoiceChat/releases/download/v0.1.9-alpha/ProximityVoiceChat.zip",
-        "DownloadLinkTesting": "https://github.com/Ricimon/FFXIV-ProximityVoiceChat/releases/download/v0.1.9-alpha/ProximityVoiceChat.zip",
-        "DownloadLinkUpdate": "https://github.com/Ricimon/FFXIV-ProximityVoiceChat/releases/download/v0.1.9-alpha/ProximityVoiceChat.zip"
+        "DownloadLinkInstall": "https://github.com/Ricimon/FFXIV-ProximityVoiceChat/releases/download/v0.2.0-alpha/ProximityVoiceChat_v0.2.0.zip",
+        "DownloadLinkTesting": "https://github.com/Ricimon/FFXIV-ProximityVoiceChat/releases/download/v0.2.0-alpha/ProximityVoiceChat_v0.2.0.zip",
+        "DownloadLinkUpdate": "https://github.com/Ricimon/FFXIV-ProximityVoiceChat/releases/download/v0.2.0-alpha/ProximityVoiceChat_v0.2.0.zip"
     }
 ]

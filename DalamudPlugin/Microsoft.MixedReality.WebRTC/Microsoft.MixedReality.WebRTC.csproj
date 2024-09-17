@@ -2,7 +2,7 @@
 
   <!-- This needs to go first, before Microsoft.Common.props is imported  -->
   <PropertyGroup>
-    <BaseIntermediateOutputPath>.\build\Microsoft.MixedReality.WebRTC\$(Configuration)</BaseIntermediateOutputPath>
+    <BaseIntermediateOutputPath>.\bin\build\Microsoft.MixedReality.WebRTC\$(Configuration)</BaseIntermediateOutputPath>
     <OutputPath>.\bin\netstandard2.0\$(Configuration)\</OutputPath>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
   </PropertyGroup>
@@ -26,7 +26,7 @@
     <RepositoryType>github</RepositoryType>
     <Copyright>Copyright (c) Microsoft Corporation</Copyright>
     <PackageTags>webrtc video audio streaming</PackageTags>
-    <DocumentationFile>.\bin\$(TargetFramework)\$(Configuration)\Microsoft.MixedReality.WebRTC.xml</DocumentationFile>
+    <!--<DocumentationFile>.\bin\$(TargetFramework)\$(Configuration)\Microsoft.MixedReality.WebRTC.xml</DocumentationFile>-->
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
@@ -43,9 +43,9 @@
     <NativeUnityPluginSourceFiles Include="$(OutputPath)\Microsoft.MixedReality.WebRTC.dll;$(OutputPath)\Microsoft.MixedReality.WebRTC.pdb" />
   </ItemGroup>
 
-  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+  <!--<Target Name="PostBuild" AfterTargets="PostBuildEvent">
     <Copy SourceFiles="@(NativeUnityPluginSourceFiles)" DestinationFolder="$(ProjectDir)\bin\unity\library\Runtime\Plugins\Win32\x86_64" />
-  </Target>
+  </Target>-->
 
   <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
 

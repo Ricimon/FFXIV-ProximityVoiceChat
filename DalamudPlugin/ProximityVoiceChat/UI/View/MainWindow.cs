@@ -44,6 +44,7 @@ public class MainWindow : Window, IMainWindow, IDisposable
     public IReactiveProperty<float> AudioFalloffMaximumDistance { get; } = new ReactiveProperty<float>();
     public IReactiveProperty<float> AudioFalloffFactor { get; } = new ReactiveProperty<float>();
     public IReactiveProperty<bool> MuteDeadPlayers { get; } = new ReactiveProperty<bool>();
+    public IReactiveProperty<bool> MuteOutOfMapPlayers { get; } = new ReactiveProperty<bool>();
 
     public IReactiveProperty<bool> PrintLogsToChat { get; }
         = new ReactiveProperty<bool>(mode: ReactivePropertyMode.DistinctUntilChanged);
@@ -214,7 +215,7 @@ public class MainWindow : Window, IMainWindow, IDisposable
         {
             if (ImGui.BeginTable("AudioFalloffSettings", 2))
             {
-                ImGui.TableSetupColumn("AudioFalloffSettingsCol1", ImGuiTableColumnFlags.WidthFixed, 110);
+                ImGui.TableSetupColumn("AudioFalloffSettingsCol1", ImGuiTableColumnFlags.WidthFixed, 140);
                 ImGui.TableSetupColumn("AudioFalloffSettingsCol2", ImGuiTableColumnFlags.WidthFixed, 150);
 
                 ImGui.TableNextRow(); ImGui.TableNextColumn();
@@ -292,6 +293,27 @@ public class MainWindow : Window, IMainWindow, IDisposable
                 {
                     this.MuteDeadPlayers.Value = muteDeadPlayers;
                 }
+
+                ImGui.TableNextRow(); ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding();
+                ImGui.Text("Mute Out Of Map Players");
+                ImGui.TableNextColumn();
+                ImGui.SetNextItemWidth(ImGui.GetColumnWidth());
+                if (this.voiceRoomManager.InPublicRoom)
+                {
+                    ImGui.BeginDisabled();
+                }
+                var muteOutOfMapPlayers = this.voiceRoomManager.InPublicRoom || this.MuteOutOfMapPlayers.Value;
+                if (ImGui.Checkbox("##MuteOutOfMapPlayers", ref muteOutOfMapPlayers))
+                {
+                    this.MuteOutOfMapPlayers.Value = muteOutOfMapPlayers;
+                }
+                if (this.voiceRoomManager.InPublicRoom)
+                {
+                    ImGui.EndDisabled();
+                }
+                ImGui.SameLine(); HelpMarker("Can only disable in private rooms");
+
                 ImGui.EndTable();
             }
         }

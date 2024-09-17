@@ -207,11 +207,11 @@ public class AudioDeviceController : IDisposable
         }
     }
 
-    public void ResetAllChannelsVolume()
+    public void SetAllChannelsVolume(float volume)
     {
         foreach(var channel in this.playbackChannels)
         {
-            channel.Value.VolumeSampleProvider.Volume = 0.0f;
+            channel.Value.VolumeSampleProvider.Volume = volume;
         }
     }
 

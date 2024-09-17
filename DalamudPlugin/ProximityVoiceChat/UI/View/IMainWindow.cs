@@ -23,6 +23,7 @@ public interface IMainWindow : IPluginUIView
     public IReactiveProperty<float> AudioFalloffMaximumDistance { get; }
     public IReactiveProperty<float> AudioFalloffFactor { get; }
     public IReactiveProperty<bool> MuteDeadPlayers { get; }
+    public IReactiveProperty<bool> MuteOutOfMapPlayers { get; }
 
     public IReactiveProperty<bool> PrintLogsToChat { get; }
     public IReactiveProperty<int> MinimumVisibleLogLevel { get; }

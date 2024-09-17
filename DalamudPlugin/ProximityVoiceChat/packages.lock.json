@@ -14,12 +14,6 @@
         "resolved": "2.1.13",
         "contentHash": "rMN1omGe8536f4xLMvx9NwfvpAc9YFFfeXJ1t4P4PE6Gu8WCIoFliR1sh07hM+bfODmesk/dvMbji7vNI+B/pQ=="
       },
-      "Microsoft.MixedReality.WebRTC": {
-        "type": "Direct",
-        "requested": "[2.0.2, )",
-        "resolved": "2.0.2",
-        "contentHash": "0InRdeWcRaGc+MkwdhaX/6vIh+Fbjdncl0AsXHjZVFKzxV6eg2zKgt6Kx5eb5ilX9OhQJ0poAG1NqvkngdCPUg=="
-      },
       "NAudio": {
         "type": "Direct",
         "requested": "[2.2.1, )",
@@ -56,9 +50,9 @@
       },
       "NLog": {
         "type": "Direct",
-        "requested": "[5.3.3, )",
-        "resolved": "5.3.3",
-        "contentHash": "cy0+hlrUbYu+6mgUsILqCcqlJ2Csqyt2lm8y9T9kE8nhgwl8SvR+LM21QX4nmzFCPiowbrTFYxNF8+gWpy7/HQ=="
+        "requested": "[5.3.4, )",
+        "resolved": "5.3.4",
+        "contentHash": "gLy7+O1hEYJXIlcTr1/VWjGXrZTQFZzYNO18IWasD64pNwz0BreV+nHLxWKXWZzERRzoKnsk2XYtwLkTVk7J1A=="
       },
       "ReactiveProperty": {
         "type": "Direct",
@@ -105,9 +99,9 @@
       },
       "YamlDotNet": {
         "type": "Direct",
-        "requested": "[16.1.0, )",
-        "resolved": "16.1.0",
-        "contentHash": "ywYsFpZi0SKeQ+wrg1V7wZIz/ym0QJKN8IOPi06vYOgTMwHlQEr02BV5yC9IUXOBzD/pbYTuVflcObz2WdzSOw=="
+        "requested": "[16.1.2, )",
+        "resolved": "16.1.2",
+        "contentHash": "VHBamNzHIKqkdWgYrGk48mEos+lVDFHzJyk0JiFYydoViSiCNIdoDTL3kaqAh+exQ2m2ZgZQphBgaOngR1fYjg=="
       },
       "Castle.Core": {
         "type": "Transitive",
@@ -1450,6 +1444,9 @@
           "System.Threading": "4.3.0",
           "System.Xml.ReaderWriter": "4.3.0"
         }
+      },
+      "microsoft.mixedreality.webrtc": {
+        "type": "Project"
       }
     }
   }

@@ -29,6 +29,8 @@ public class VoiceRoomManager : IDisposable
 
     public bool InRoom { get; private set; }
 
+    public bool InPublicRoom => InRoom && string.IsNullOrEmpty(this.SignalingChannel?.RoomName);
+
     public IEnumerable<string> PlayersInVoiceRoom
     {
         get
@@ -221,11 +223,12 @@ public class VoiceRoomManager : IDisposable
             // Use polling to set individual channel volumes.
             // The search is done by iterating through all GameObjects and finding any connected players out of them,
             // so we reset all players volumes before calculating any volumes in case the players cannot be found.
-            this.audioDeviceController.ResetAllChannelsVolume();
+            var defaultVolume = (InPublicRoom || this.configuration.MuteOutOfMapPlayers) ? 0.0f : 1.0f;
+            this.audioDeviceController.SetAllChannelsVolume(defaultVolume * this.configuration.MasterVolume);
             foreach (var tp in this.TrackedPlayers.Values)
             {
                 tp.Distance = float.NaN;
-                tp.Volume = 0.0f;
+                tp.Volume = defaultVolume;
             }
 
             // Conditions where volume is impossible/unnecessary to calculate
@@ -308,13 +311,13 @@ public class VoiceRoomManager : IDisposable
                     volume = 1 - falloffFactor * (distance - minDistance) / (maxDistance - minDistance);
                     break;
                 default:
-                    volume = 0.0;
+                    volume = 1.0;
                     break;
             }
         }
         catch (Exception e) when (e is DivideByZeroException or ArgumentException)
         {
-            volume = 0.0;
+            volume = 1.0;
         }
         volume = Math.Clamp(volume, 0.0, 1.0);
         return (float)volume;

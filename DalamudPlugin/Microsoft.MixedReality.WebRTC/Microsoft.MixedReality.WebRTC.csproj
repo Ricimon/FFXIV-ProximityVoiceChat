@@ -1,0 +1,52 @@
+<Project>
+
+  <!-- This needs to go first, before Microsoft.Common.props is imported  -->
+  <PropertyGroup>
+    <BaseIntermediateOutputPath>.\build\Microsoft.MixedReality.WebRTC\$(Configuration)</BaseIntermediateOutputPath>
+    <OutputPath>.\bin\netstandard2.0\$(Configuration)\</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+
+  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" />
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <LangVersion>7.3</LangVersion>
+    <Company>Microsoft</Company>
+    <Authors>Mixed Reality Sharing Team</Authors>
+    <DefineConstants Condition="'$(Configuration)'=='Debug'">TRACE</DefineConstants>
+    <DefineConstants>MR_SHARING_WIN</DefineConstants>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Version>0.1.0</Version>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://microsoft.github.io/MixedReality-WebRTC/</PackageProjectUrl>
+    <PackageIconUrl>https://github.com/microsoft/MixedReality-WebRTC/blob/master/docs/mr-webrtc_icon.png</PackageIconUrl>
+    <RepositoryUrl>https://github.com/microsoft/MixedReality-WebRTC</RepositoryUrl>
+    <RepositoryType>github</RepositoryType>
+    <Copyright>Copyright (c) Microsoft Corporation</Copyright>
+    <PackageTags>webrtc video audio streaming</PackageTags>
+    <DocumentationFile>.\bin\$(TargetFramework)\$(Configuration)\Microsoft.MixedReality.WebRTC.xml</DocumentationFile>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="obj\**" />
+    <EmbeddedResource Remove="obj\**" />
+    <None Remove="obj\**" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <NativeUnityPluginSourceFiles Include="$(OutputPath)\Microsoft.MixedReality.WebRTC.dll;$(OutputPath)\Microsoft.MixedReality.WebRTC.pdb" />
+  </ItemGroup>
+
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Copy SourceFiles="@(NativeUnityPluginSourceFiles)" DestinationFolder="$(ProjectDir)\bin\unity\library\Runtime\Plugins\Win32\x86_64" />
+  </Target>
+
+  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
+
+</Project>

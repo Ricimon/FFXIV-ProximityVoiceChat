@@ -5,7 +5,7 @@
   <PropertyGroup>
     <Authors>Ricimon</Authors>
     <Company></Company>
-    <Version>0.2.1.0</Version>
+    <Version>0.2.2.0</Version>
     <Description></Description>
     <Copyright></Copyright>
     <PackageProjectUrl>https://github.com/Ricimon/FFXIV-ProximityVoiceChat</PackageProjectUrl>
@@ -20,13 +20,6 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <DebugType>none</DebugType>
   </PropertyGroup>
-
-  <ItemGroup>
-    <None Include="..\Resources\**\*">
-	<Link>resources\%(RecrusiveDir)/%(FileName)%(Extension)</Link>
-	  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	</None>
-  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="AsyncAwaitBestPractices" Version="8.0.0" />
@@ -50,6 +43,12 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="config.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="ProximityVoiceChat.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Resources\**\*.*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

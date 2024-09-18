@@ -219,10 +219,10 @@ public class SignalingChannel : IDisposable
             return;
         }
 
-        if (this.verbose)
-        {
-            this.logger.Trace("Signaling server message: {0}", response);
-        }
+        //if (this.verbose)
+        //{
+        //    this.logger.Trace("Signaling server message: {0}", response);
+        //}
         this.OnMessage?.Invoke(response);
     }
 

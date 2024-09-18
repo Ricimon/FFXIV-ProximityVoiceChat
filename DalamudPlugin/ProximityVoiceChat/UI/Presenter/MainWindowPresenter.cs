@@ -24,7 +24,7 @@ public class MainWindowPresenter(
     private readonly Configuration configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
     private readonly IClientState clientState = clientState ?? throw new ArgumentNullException(nameof(clientState));
     private readonly IObjectTable objectTable = objectTable ?? throw new ArgumentNullException(nameof(objectTable));
-    private readonly AudioDeviceController audioInputController = audioInputController ?? throw new ArgumentNullException(nameof(audioInputController));
+    private readonly AudioDeviceController audioDeviceController = audioInputController ?? throw new ArgumentNullException(nameof(audioInputController));
     private readonly VoiceRoomManager voiceRoomManager = voiceRoomManager ?? throw new ArgumentNullException(nameof(voiceRoomManager));
     private readonly ILogger logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
@@ -44,11 +44,11 @@ public class MainWindowPresenter(
     private void BindVariables()
     {
         Bind(this.view.SelectedAudioInputDeviceIndex,
-            b => this.audioInputController.AudioRecordingDeviceIndex = b, this.audioInputController.AudioRecordingDeviceIndex);
+            b => this.audioDeviceController.AudioRecordingDeviceIndex = b, this.audioDeviceController.AudioRecordingDeviceIndex);
         Bind(this.view.SelectedAudioOutputDeviceIndex,
-            b => this.audioInputController.AudioPlaybackDeviceIndex = b, this.audioInputController.AudioPlaybackDeviceIndex);
+            b => this.audioDeviceController.AudioPlaybackDeviceIndex = b, this.audioDeviceController.AudioPlaybackDeviceIndex);
         Bind(this.view.PlayingBackMicAudio,
-            b => this.audioInputController.PlayingBackMicAudio = b, this.audioInputController.PlayingBackMicAudio);
+            b => this.audioDeviceController.PlayingBackMicAudio = b, this.audioDeviceController.PlayingBackMicAudio);
 
         Bind(this.view.PublicRoom,
             b => { this.configuration.PublicRoom = b; this.configuration.Save(); }, this.configuration.PublicRoom);
@@ -80,6 +80,9 @@ public class MainWindowPresenter(
 
     private void BindActions()
     {
+        this.view.MuteMic.Subscribe(b => { this.audioDeviceController.MuteMic = b; });
+        this.view.Deafen.Subscribe(b => { this.audioDeviceController.Deafen = b; });
+
         this.view.JoinVoiceRoom.Subscribe(_ =>
         {
             var playerName = this.clientState.GetLocalPlayerFullName();

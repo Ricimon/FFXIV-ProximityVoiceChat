@@ -75,7 +75,7 @@ namespace ProximityVoiceChat.WebRTC
 
         private void OnMessage(byte[] obj)
         {
-            this.logger.Trace("Received data from peer {0}: {1}", this.peerId!, obj);
+            //this.logger.Trace("Received data from peer {0}: {1}", this.peerId!, obj);
             if (AudioDeviceController.TryParseAudioSampleBytes(obj, out var sample))
             {
                 this.audioDeviceController.AddPlaybackSample(this.peerId!, sample!);

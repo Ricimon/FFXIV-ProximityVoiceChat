@@ -199,7 +199,7 @@ public class VoiceRoomManager : IDisposable
             return;
         }
 
-        this.logger.Trace("Attempting to leave voice room.");
+        this.logger.Debug("Attempting to leave voice room.");
 
         InRoom = false;
         this.localPlayerFullName = null;
@@ -224,7 +224,7 @@ public class VoiceRoomManager : IDisposable
             // The search is done by iterating through all GameObjects and finding any connected players out of them,
             // so we reset all players volumes before calculating any volumes in case the players cannot be found.
             var defaultVolume = (InPublicRoom || this.configuration.MuteOutOfMapPlayers) ? 0.0f : 1.0f;
-            this.audioDeviceController.SetAllChannelsVolume(defaultVolume * this.configuration.MasterVolume);
+            this.audioDeviceController.ResetAllChannelsVolume(defaultVolume * this.configuration.MasterVolume);
             foreach (var tp in this.TrackedPlayers.Values)
             {
                 tp.Distance = float.NaN;
@@ -259,12 +259,12 @@ public class VoiceRoomManager : IDisposable
                     if (deathMute)
                     {
                         volume = 0;
-                        this.logger.Debug("Player {0} is dead, setting volume to {1}", peer.PeerId, volume);
+                        //this.logger.Debug("Player {0} is dead, setting volume to {1}", peer.PeerId, volume);
                     }
                     else
                     {
                         volume = CalculateVolume(distance);
-                        this.logger.Debug("Player {0} is {1} units away, setting volume to {2}", peer.PeerId, distance, volume);
+                        //this.logger.Debug("Player {0} is {1} units away, setting volume to {2}", peer.PeerId, distance, volume);
                     }
 
                     this.audioDeviceController.SetChannelVolume(peer.PeerId, volume * this.configuration.MasterVolume);

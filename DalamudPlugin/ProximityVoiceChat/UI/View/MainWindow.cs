@@ -11,6 +11,9 @@ using ProximityVoiceChat.Log;
 using ProximityVoiceChat.UI.Util;
 using Microsoft.MixedReality.WebRTC;
 using System.Text;
+using Dalamud.Plugin.Services;
+using Dalamud.Plugin;
+using System.IO;
 
 namespace ProximityVoiceChat.UI.View;
 
@@ -28,15 +31,19 @@ public class MainWindow : Window, IMainWindow, IDisposable
     public IReactiveProperty<string> RoomName { get; } = new ReactiveProperty<string>(string.Empty);
     public IReactiveProperty<string> RoomPassword { get; } = new ReactiveProperty<string>(string.Empty);
 
-    public IReactiveProperty<bool> PlayingBackMicAudio { get; } = new ReactiveProperty<bool>();
-
-    private readonly ISubject<Unit> joinVoiceRoom = new Subject<Unit>();
+    private readonly Subject<Unit> joinVoiceRoom = new();
     public IObservable<Unit> JoinVoiceRoom => joinVoiceRoom.AsObservable();
-    private readonly ISubject<Unit> leaveVoiceRoom = new Subject<Unit>();
+    private readonly Subject<Unit> leaveVoiceRoom = new();
     public IObservable<Unit> LeaveVoiceRoom => leaveVoiceRoom.AsObservable();
 
     public IReactiveProperty<int> SelectedAudioInputDeviceIndex { get; } = new ReactiveProperty<int>(-1);
     public IReactiveProperty<int> SelectedAudioOutputDeviceIndex { get; } = new ReactiveProperty<int>(-1);
+    public IReactiveProperty<bool> PlayingBackMicAudio { get; } = new ReactiveProperty<bool>();
+
+    public IObservable<bool> MuteMic => muteMic.AsObservable();
+    private readonly Subject<bool> muteMic = new();
+    public IObservable<bool> Deafen => deafen.AsObservable();
+    private readonly Subject<bool> deafen = new();
 
     public IReactiveProperty<float> MasterVolume { get; } = new ReactiveProperty<float>();
     public IReactiveProperty<AudioFalloffModel.FalloffType> AudioFalloffType { get; } = new ReactiveProperty<AudioFalloffModel.FalloffType>();
@@ -46,26 +53,30 @@ public class MainWindow : Window, IMainWindow, IDisposable
     public IReactiveProperty<bool> MuteDeadPlayers { get; } = new ReactiveProperty<bool>();
     public IReactiveProperty<bool> MuteOutOfMapPlayers { get; } = new ReactiveProperty<bool>();
 
-    public IReactiveProperty<bool> PrintLogsToChat { get; }
-        = new ReactiveProperty<bool>(mode: ReactivePropertyMode.DistinctUntilChanged);
-    public IReactiveProperty<int> MinimumVisibleLogLevel { get; }
-        = new ReactiveProperty<int>(mode: ReactivePropertyMode.DistinctUntilChanged);
+    public IReactiveProperty<bool> PrintLogsToChat { get; } = new ReactiveProperty<bool>();
+    public IReactiveProperty<int> MinimumVisibleLogLevel { get; } = new ReactiveProperty<int>();
 
     private string[]? inputDevices;
     private string[]? outputDevices;
 
     private readonly WindowSystem windowSystem;
+    private readonly IDalamudPluginInterface pluginInterface;
+    private readonly ITextureProvider textureProvider;
     private readonly AudioDeviceController audioDeviceController;
     private readonly VoiceRoomManager voiceRoomManager;
     private readonly string[] falloffTypes;
 
     public MainWindow(
         WindowSystem windowSystem,
+        IDalamudPluginInterface pluginInterface,
+        ITextureProvider textureProvider,
         AudioDeviceController audioDeviceController,
         VoiceRoomManager voiceRoomManager) : base(
         PluginInitializer.Name)
     {
         this.windowSystem = windowSystem ?? throw new ArgumentNullException(nameof(windowSystem));
+        this.pluginInterface = pluginInterface ?? throw new ArgumentNullException(nameof(pluginInterface));
+        this.textureProvider = textureProvider ?? throw new ArgumentNullException(nameof(textureProvider));
         this.audioDeviceController = audioDeviceController ?? throw new ArgumentNullException(nameof(audioDeviceController));
         this.voiceRoomManager = voiceRoomManager ?? throw new ArgumentNullException(nameof(voiceRoomManager));
         this.falloffTypes = Enum.GetNames(typeof(AudioFalloffModel.FalloffType));
@@ -163,6 +174,36 @@ public class MainWindow : Window, IMainWindow, IDisposable
             if (this.voiceRoomManager.InRoom) { ImGui.EndDisabled(); }
         }
         //ImGui.Indent(-indent);
+
+        ImGui.Dummy(new Vector2(0.0f, 5.0f)); // ---------------
+
+        var resourcesDir = Path.Combine(this.pluginInterface.AssemblyLocation.Directory?.FullName!, "Resources");
+        var muteMic = this.audioDeviceController.MuteMic || this.audioDeviceController.Deafen;
+        var microphoneImageName = muteMic ? "microphone-muted.png" : "microphone.png" ;
+        var microphoneImage = this.textureProvider.GetFromFile(Path.Combine(resourcesDir, microphoneImageName)).GetWrapOrDefault();
+        if (ImGui.ImageButton(microphoneImage?.ImGuiHandle ?? default, new Vector2(20, 20)))
+        {
+            this.muteMic.OnNext(!muteMic);
+        }
+        if (ImGui.IsItemHovered())
+        {
+            ImGui.BeginTooltip();
+            ImGui.Text(muteMic ? "Turn On Microphone" : "Turn Off Microphone");
+            ImGui.EndTooltip();
+        }
+        ImGui.SameLine();
+        var headphonesImageName = this.audioDeviceController.Deafen ? "headphones-deafen.png" : "headphones.png";
+        var headphonesImage = this.textureProvider.GetFromFile(Path.Combine(resourcesDir, headphonesImageName)).GetWrapOrDefault();
+        if (ImGui.ImageButton(headphonesImage?.ImGuiHandle ?? default, new Vector2(20, 20)))
+        {
+            this.deafen.OnNext(!this.audioDeviceController.Deafen);
+        }
+        if (ImGui.IsItemHovered())
+        {
+            ImGui.BeginTooltip();
+            ImGui.Text(this.audioDeviceController.Deafen ? "Undeafen" : "Deafen");
+            ImGui.EndTooltip();
+        }
 
         ImGui.Dummy(new Vector2(0.0f, 5.0f)); // ---------------
 

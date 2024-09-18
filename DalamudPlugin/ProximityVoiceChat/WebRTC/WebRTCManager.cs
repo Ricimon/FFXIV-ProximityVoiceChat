@@ -249,7 +249,7 @@ public class WebRTCManager : IDisposable
 
         peerConnection.IceCandidateReadytoSend += (IceCandidate candidate) =>
         {
-            this.logger.Debug("Ice candidate sending: {0}, {1}, {2}", candidate.SdpMid, candidate.SdpMlineIndex, candidate.Content);
+            this.logger.Trace("Ice candidate sending: {0}, {1}, {2}", candidate.SdpMid, candidate.SdpMlineIndex, candidate.Content);
             this.signalingChannel.SendToAsync(peer.PeerId, new SignalMessage.SignalPayload
             {
                 action = "ice",
@@ -270,7 +270,7 @@ public class WebRTCManager : IDisposable
                 {
                     if (verbose)
                     {
-                        logger.Debug("Sending Sdp {0} to {1}. Content: {2}", message.Type, peer.PeerId, message.Content);
+                        logger.Trace("Sending Sdp {0} to {1}. Content: {2}", message.Type, peer.PeerId, message.Content);
                     }
                     await signalingChannel.SendToAsync(peer.PeerId, new SignalMessage.SignalPayload
                     {

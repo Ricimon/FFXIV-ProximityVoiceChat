@@ -17,6 +17,9 @@ public interface IMainWindow : IPluginUIView
     public IReactiveProperty<int> SelectedAudioOutputDeviceIndex { get; }
     public IReactiveProperty<bool> PlayingBackMicAudio { get; }
 
+    public IObservable<bool> MuteMic { get; }
+    public IObservable<bool> Deafen { get; }
+
     public IReactiveProperty<float> MasterVolume { get; }
     public IReactiveProperty<AudioFalloffModel.FalloffType> AudioFalloffType { get; }
     public IReactiveProperty<float> AudioFalloffMinimumDistance { get; }

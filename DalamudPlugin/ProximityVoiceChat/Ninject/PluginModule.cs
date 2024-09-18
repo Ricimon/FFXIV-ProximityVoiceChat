@@ -28,6 +28,7 @@ public class PluginModule : NinjectModule
         Bind<IAddonEventManager>().ToConstant(PluginInitializer.AddonEventManager).InTransientScope();
         Bind<IAddonLifecycle>().ToConstant(PluginInitializer.AddonLifecycle).InTransientScope();
         Bind<IFramework>().ToConstant(PluginInitializer.Framework).InTransientScope();
+        Bind<ITextureProvider>().ToConstant(PluginInitializer.TextureProvider).InTransientScope();
         Bind<IPluginLog>().ToConstant(PluginInitializer.Log).InTransientScope();
 
         // Plugin classes

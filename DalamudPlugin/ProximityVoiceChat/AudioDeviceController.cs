@@ -9,8 +9,36 @@ namespace ProximityVoiceChat;
 
 public class AudioDeviceController : IDisposable
 {
-    public bool IsAudioRecordingSourceActive => PlayingBackMicAudio || AudioRecordingIsRequested;
-    public bool IsAudioPlaybackSourceActive => PlayingBackMicAudio || AudioPlaybackIsRequested;
+    public bool IsAudioRecordingSourceActive => PlayingBackMicAudio || (!MuteMic && !Deafen && AudioRecordingIsRequested);
+    public bool IsAudioPlaybackSourceActive => PlayingBackMicAudio || (!Deafen && AudioPlaybackIsRequested);
+
+    public bool MuteMic
+    {
+        get => this.muteMic;
+        set
+        {
+            this.muteMic = this.configuration.MuteMic = value;
+            if (!this.muteMic)
+            {
+                this.deafen = this.configuration.Deafen = false;
+            }
+            this.configuration.Save();
+            UpdateSourceStates();
+        }
+    }
+    private bool muteMic;
+
+    public bool Deafen
+    {
+        get => this.deafen;
+        set
+        {
+            this.deafen = this.configuration.Deafen = value;
+            this.configuration.Save();
+            UpdateSourceStates();
+        }
+    }
+    private bool deafen;
 
     public bool PlayingBackMicAudio
     {
@@ -93,6 +121,7 @@ public class AudioDeviceController : IDisposable
     private WaveInEvent? audioRecordingSource;
     private WaveOutEvent? audioPlaybackSource;
     private bool recording;
+    private bool playingBack;
 
     private readonly WaveFormat waveFormat = WaveFormat.CreateIeeeFloatWaveFormat(16000, 1);
     private readonly Dictionary<string, PlaybackChannel> playbackChannels = [];
@@ -131,6 +160,8 @@ public class AudioDeviceController : IDisposable
         this.configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
+        this.muteMic = configuration.MuteMic;
+        this.deafen = configuration.Deafen;
         this.audioRecordingDeviceIndex = configuration.SelectedAudioInputDeviceIndex;
         this.audioPlaybackDeviceIndex = configuration.SelectedAudioOutputDeviceIndex;
 
@@ -207,8 +238,12 @@ public class AudioDeviceController : IDisposable
         }
     }
 
-    public void SetAllChannelsVolume(float volume)
+    public void ResetAllChannelsVolume(float volume)
     {
+        if (this.Deafen || this.PlayingBackMicAudio)
+        {
+            volume = 0.0f;
+        }
         foreach(var channel in this.playbackChannels)
         {
             channel.Value.VolumeSampleProvider.Volume = volume;
@@ -217,6 +252,10 @@ public class AudioDeviceController : IDisposable
 
     public void SetChannelVolume(string channelName, float volume)
     {
+        if (this.Deafen || this.PlayingBackMicAudio)
+        {
+            volume = 0.0f;
+        }
         if (this.playbackChannels.TryGetValue(channelName, out var channel))
         {
             channel.VolumeSampleProvider.Volume = volume;
@@ -272,7 +311,13 @@ public class AudioDeviceController : IDisposable
                 DeviceNumber = this.AudioPlaybackDeviceIndex,
                 DesiredLatency = 150,
             };
+            this.audioPlaybackSource.PlaybackStopped += (object? sender, StoppedEventArgs e) =>
+            {
+                this.playingBack = false;
+            };
             this.audioPlaybackSource.Init(this.outputSampleProvider);
+
+            this.playingBack = false;
         }
         return this.audioPlaybackSource;
     }
@@ -288,7 +333,7 @@ public class AudioDeviceController : IDisposable
 
     private void OnAudioSourceDataAvailable(object? sender, WaveInEventArgs e)
     {
-        this.logger.Trace("Audio data received from recording device: {0} bytes recorded, {1}", e.BytesRecorded, e.Buffer);
+        //this.logger.Trace("Audio data received from recording device: {0} bytes recorded, {1}", e.BytesRecorded, e.Buffer);
         if (this.audioPlaybackSource != null && this.PlayingBackMicAudio)
         {
             this.micPlaybackWaveProvider.AddSamples(e.Buffer, 0, e.BytesRecorded);
@@ -318,23 +363,33 @@ public class AudioDeviceController : IDisposable
         {
             if (!this.recording)
             {
+                this.logger.Debug("Starting audio recording source from device #{0}", GetOrCreateAudioRecordingSource().DeviceNumber);
                 GetOrCreateAudioRecordingSource().StartRecording();
                 this.recording = true;
             }
         }
         else
         {
+            this.logger.Debug("Stopping audio recording source from device #{0}", GetOrCreateAudioRecordingSource().DeviceNumber);
             GetOrCreateAudioRecordingSource().StopRecording();
+            this.recording = false;
         }
 
         if (this.IsAudioPlaybackSourceActive)
         {
-            GetOrCreateAudioPlaybackSource().Play();
+            if (!this.playingBack)
+            {
+                this.logger.Debug("Starting audio playback source from device #{0}", GetOrCreateAudioPlaybackSource().DeviceNumber);
+                ClearPlaybackBuffers(true);
+                GetOrCreateAudioPlaybackSource().Play();
+                this.playingBack = true;
+            }
         }
         else
         {
+            this.logger.Debug("Stopping audio playback source from device #{0}", GetOrCreateAudioPlaybackSource().DeviceNumber);
             GetOrCreateAudioPlaybackSource().Stop();
-            ClearPlaybackBuffers(true);
+            this.playingBack = false;
         }
     }
 }

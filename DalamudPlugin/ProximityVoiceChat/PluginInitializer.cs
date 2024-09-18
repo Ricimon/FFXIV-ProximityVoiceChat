@@ -26,6 +26,7 @@ public sealed class PluginInitializer : IDalamudPlugin
     [PluginService] internal static IAddonEventManager AddonEventManager { get; private set; } = null!;
     [PluginService] internal static IAddonLifecycle AddonLifecycle { get; private set; } = null!;
     [PluginService] internal static IFramework Framework { get; private set; } = null!;
+    [PluginService] internal static ITextureProvider TextureProvider { get; private set; } = null!;
     [PluginService] internal static IPluginLog Log { get; private set; } = null!;
 
     private readonly IKernel kernel;

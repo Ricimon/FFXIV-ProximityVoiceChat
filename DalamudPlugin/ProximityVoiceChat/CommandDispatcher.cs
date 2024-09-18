@@ -39,7 +39,9 @@ public class CommandDispatcher(
     public void Dispose()
     {
         this.commandManager.RemoveHandler(commandName);
+#if DEBUG
         this.commandManager.RemoveHandler(configCommandName);
+#endif
     }
 
     private void OnCommand(string command, string args)

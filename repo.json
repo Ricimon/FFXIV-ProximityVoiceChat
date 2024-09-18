@@ -3,7 +3,7 @@
         "Author": "Ricimon",
         "Name": "ProximityVoiceChat",
         "Description": "An in-game voice chat plugin with character proximity detection. [IN DEVELOPMENT]",
-		"Punchline": "",
+        "Punchline": "In-game proximity voice chat",
         "InternalName": "ProximityVoiceChat",
         "AssemblyVersion": "0.2.2.0",
         "TestingAssemblyVersion": "0.2.2.0",

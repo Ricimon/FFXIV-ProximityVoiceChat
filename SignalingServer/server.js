@@ -113,8 +113,13 @@ io.on("connection", (socket) => {
   });
 
   socket.on("message", (message) => {
-    if (message.payload && message.payload.action === "update" && message.from in connections) {
-      connections[message.from].audioState = message.payload.audioState;
+    if (message.payload && message.payload.action === "update") {
+      for (const c in message.payload.connections) {
+        // Peer data can only be updated by its owner
+        if (c.peerId === message.from && c.peerId in connections) {
+          connections[c.peerId].audioState = c.audioState;
+        }
+      }
     }
     // Send message to all peers except the sender
     socket.to(socket.room).emit("message", message);

@@ -235,20 +235,24 @@ public class VoiceRoomManager : IDisposable
             return;
         }
 
-        var audioState = Peer.AudioStateFlags.Default;
+        ushort audioState = 0;
         if (this.audioDeviceController.MuteMic || this.audioDeviceController.PlayingBackMicAudio)
         {
-            audioState |= Peer.AudioStateFlags.MicMuted;
+            audioState |= (ushort)Peer.AudioStateFlags.MicMuted;
         }
         if (this.audioDeviceController.Deafen || this.audioDeviceController.PlayingBackMicAudio)
         {
-            audioState |= Peer.AudioStateFlags.Deafened;
+            audioState |= (ushort)Peer.AudioStateFlags.Deafened;
         }
         this.logger.Trace("Pushing player audio state: {0}", audioState);
         this.SignalingChannel.SendAsync(new SignalMessage.SignalPayload
         {
             action = "update",
-            audioState = audioState,
+            connections = [ new SignalMessage.SignalPayload.Connection
+            {
+                peerId = this.SignalingChannel.PeerId,
+                audioState = audioState,
+            }],
         }).SafeFireAndForget(ex => this.logger.Error(ex.ToString()));
     }
 

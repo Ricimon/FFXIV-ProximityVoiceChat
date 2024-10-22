@@ -12,6 +12,7 @@ namespace ProximityVoiceChat.WebRTC
                 public string socketId;
                 public string peerId;
                 public string peerType;
+                public ushort audioState;
             }
 
             public class IcePayload
@@ -37,7 +38,6 @@ namespace ProximityVoiceChat.WebRTC
             public bool bePolite;
             public RTCSessionDescriptionInit sdp;
             public IcePayload ice;
-            public Peer.AudioStateFlags audioState;
         }
 
         public string from;

@@ -16,6 +16,8 @@ public class SignalingChannel : IDisposable
     public bool Connected => !(this.disconnectCts?.IsCancellationRequested ?? false) && this.socket.Connected;
     public bool Ready => this.Connected && this.ready;
     public bool Disconnected { get; private set; }
+    public string PeerId { get; }
+    public string PeerType { get; }
     public string? RoomName { get; private set; }
 
     public event Action? OnConnected;
@@ -27,16 +29,14 @@ public class SignalingChannel : IDisposable
     private string? roomPassword;
     private bool ready;
 
-    private readonly string peerId;
-    private readonly string peerType;
     private readonly SocketIOClient.SocketIO socket;
     private readonly ILogger logger;
     private readonly bool verbose;
 
     public SignalingChannel(string peerId, string peerType, string signalingServerUrl, string token, ILogger logger, bool verbose = false)
     {
-        this.peerId = peerId;
-        this.peerType = peerType;
+        this.PeerId = peerId;
+        this.PeerType = peerType;
         this.logger = logger;
         this.verbose = verbose;
         this.socket = new SocketIOClient.SocketIO(signalingServerUrl, new SocketIOOptions
@@ -76,7 +76,7 @@ public class SignalingChannel : IDisposable
         {
             return this.socket.EmitAsync("message", new SignalMessage
             {
-                from = this.peerId,
+                from = this.PeerId,
                 target = "all",
                 payload = payload,
             });
@@ -93,7 +93,7 @@ public class SignalingChannel : IDisposable
         {
             return this.socket.EmitAsync("messageOne", new SignalMessage
             {
-                from = this.peerId,
+                from = this.PeerId,
                 target = targetPeerId,
                 payload = payload,
             });
@@ -170,7 +170,7 @@ public class SignalingChannel : IDisposable
                 this.logger.Debug("Connected to signaling server.");
             }
             this.OnConnected?.Invoke();
-            this.socket.EmitAsync("ready", this.peerId, this.peerType, this.RoomName, this.roomPassword)
+            this.socket.EmitAsync("ready", this.PeerId, this.PeerType, this.RoomName, this.roomPassword)
                 .SafeFireAndForget(ex => this.logger.Error(ex.ToString()));
         }
         catch (Exception ex)

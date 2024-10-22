@@ -90,6 +90,7 @@ public class WebRTCManager : IDisposable
                 foreach (var c in payload.connections)
                 {
                     AddPeer(c.peerId, c.peerType, payload.bePolite);
+                    UpdateAudioState(peers[c.peerId], c.audioState);
                 }
             }
         }
@@ -124,7 +125,17 @@ public class WebRTCManager : IDisposable
                         UpdateIceCandidate(peers[message.from], payload.ice);
                         break;
                     case "update":
-                        UpdateAudioState(peers[message.from], payload.audioState);
+                        foreach (var c in payload.connections)
+                        {
+                            if (message.from == c.peerId)
+                            {
+                                UpdateAudioState(peers[c.peerId], c.audioState);
+                            }
+                            else
+                            {
+                                this.logger.Warn("Payload action \"update\" is not allowed to update connection parameters that are not its own. Offending message from peer: {0}, connection peer: {1}", message.from, c.peerId);
+                            }
+                        }
                         break;
                     case "close":
                         TryRemovePeer(message.from);
@@ -352,10 +363,11 @@ public class WebRTCManager : IDisposable
         }
     }
 
-    private void UpdateAudioState(Peer peer, Peer.AudioStateFlags audioState)
+    private void UpdateAudioState(Peer peer, ushort audioState)
     {
-        this.logger.Trace("Received new audio state from peer {0}: {1}", peer.PeerId, audioState);
-        peer.AudioState = audioState;
+        var audioStateFlags = (Peer.AudioStateFlags)audioState;
+        this.logger.Trace("Received new audio state from peer {0}: {1}", peer.PeerId, audioStateFlags);
+        peer.AudioState = audioStateFlags;
     }
 
     private bool TryRemovePeer(string peerId)

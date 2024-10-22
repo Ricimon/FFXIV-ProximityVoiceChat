@@ -114,7 +114,7 @@ io.on("connection", (socket) => {
 
   socket.on("message", (message) => {
     if (message.payload && message.payload.action === "update") {
-      for (const c in message.payload.connections) {
+      for (const c of message.payload.connections) {
         // Peer data can only be updated by its owner
         if (c.peerId === message.from && c.peerId in connections) {
           connections[c.peerId].audioState = c.audioState;

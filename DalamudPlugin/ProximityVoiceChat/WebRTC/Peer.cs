@@ -1,6 +1,8 @@
 ﻿using Microsoft.MixedReality.WebRTC;
+using System;
 
 namespace ProximityVoiceChat.WebRTC;
+
 public class Peer
 {
     public required string PeerId;
@@ -12,4 +14,13 @@ public class Peer
     public bool IgnoreOffer;
     public bool IsSettingRemoteAnswerPending;
     public bool CanTrickleIceCandidates;
+
+    [Flags]
+    public enum AudioStateFlags : ushort
+    {
+        Default = 0,
+        MicMuted = 1 << 0,
+        Deafened = 1 << 1,
+    }
+    public AudioStateFlags AudioState;
 }

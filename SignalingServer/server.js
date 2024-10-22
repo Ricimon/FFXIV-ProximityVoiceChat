@@ -94,7 +94,12 @@ io.on("connection", (socket) => {
       payload: { action: "open", connections: Object.values(rooms[roomName]), bePolite: false } // The new peer doesn't need to be polite.
     });
     // Create new peer
-    const newPeer = { socketId: socket.id, peerId, peerType, roomName };
+    const newPeer = { 
+      socketId: socket.id,
+      peerId,
+      peerType,
+      roomName
+    };
     // Updates connections object
     connections[peerId] = newPeer;
     // Update room object
@@ -108,6 +113,9 @@ io.on("connection", (socket) => {
   });
 
   socket.on("message", (message) => {
+    if (message.payload && message.payload.action === "update" && message.from in connections) {
+      connections[message.from].audioState = message.payload.audioState;
+    }
     // Send message to all peers except the sender
     socket.to(socket.room).emit("message", message);
   });

@@ -48,7 +48,12 @@ public class MainWindowPresenter(
         Bind(this.view.SelectedAudioOutputDeviceIndex,
             b => this.audioDeviceController.AudioPlaybackDeviceIndex = b, this.audioDeviceController.AudioPlaybackDeviceIndex);
         Bind(this.view.PlayingBackMicAudio,
-            b => this.audioDeviceController.PlayingBackMicAudio = b, this.audioDeviceController.PlayingBackMicAudio);
+            b =>
+            {
+                this.audioDeviceController.PlayingBackMicAudio = b;
+                this.voiceRoomManager.PushPlayerAudioState();
+            },
+            this.audioDeviceController.PlayingBackMicAudio);
 
         Bind(this.view.PublicRoom,
             b => { this.configuration.PublicRoom = b; this.configuration.Save(); }, this.configuration.PublicRoom);
@@ -80,8 +85,16 @@ public class MainWindowPresenter(
 
     private void BindActions()
     {
-        this.view.MuteMic.Subscribe(b => { this.audioDeviceController.MuteMic = b; });
-        this.view.Deafen.Subscribe(b => { this.audioDeviceController.Deafen = b; });
+        this.view.MuteMic.Subscribe(b =>
+        {
+            this.audioDeviceController.MuteMic = b;
+            this.voiceRoomManager.PushPlayerAudioState();
+        });
+        this.view.Deafen.Subscribe(b =>
+        {
+            this.audioDeviceController.Deafen = b;
+            this.voiceRoomManager.PushPlayerAudioState();
+        });
 
         this.view.JoinVoiceRoom.Subscribe(_ =>
         {

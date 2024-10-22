@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
+using System.Linq;
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
 using ProximityVoiceChat.Log;
@@ -14,7 +15,7 @@ public class AudioDeviceController : IDisposable
 
     public bool MuteMic
     {
-        get => this.muteMic;
+        get => this.muteMic || this.Deafen;
         set
         {
             this.muteMic = this.configuration.MuteMic = value;
@@ -111,11 +112,13 @@ public class AudioDeviceController : IDisposable
     private int audioPlaybackDeviceIndex;
 
     public event EventHandler<WaveInEventArgs>? OnAudioRecordingSourceDataAvailable;
+    public WaveInEventArgs? LastAudioRecordingSourceData;
 
     private class PlaybackChannel
     {
         public required VolumeSampleProvider VolumeSampleProvider { get; set; }
         public required BufferedWaveProvider BufferedWaveProvider { get; set; }
+        public WaveInEventArgs? LastSampleAdded { get; set; }
     }
 
     private WaveInEvent? audioRecordingSource;
@@ -167,7 +170,10 @@ public class AudioDeviceController : IDisposable
 
         this.micPlaybackWaveProvider = new BufferedWaveProvider(this.waveFormat);
         this.micPlaybackVolumeProvider = new VolumeSampleProvider(this.micPlaybackWaveProvider.ToSampleProvider());
-        this.outputSampleProvider = new MixingSampleProvider(this.waveFormat);
+        this.outputSampleProvider = new MixingSampleProvider(this.waveFormat)
+        {
+            ReadFully = true,
+        };
         this.outputSampleProvider.AddMixerInput(this.micPlaybackVolumeProvider);
     }
 
@@ -219,7 +225,8 @@ public class AudioDeviceController : IDisposable
         }
         var bfp = new BufferedWaveProvider(this.waveFormat)
         {
-            DiscardOnBufferOverflow = true
+            BufferDuration = TimeSpan.FromSeconds(0.5),
+            DiscardOnBufferOverflow = true,
         };
         var vsp = new VolumeSampleProvider(bfp.ToSampleProvider());
         this.outputSampleProvider.AddMixerInput(vsp);
@@ -230,11 +237,22 @@ public class AudioDeviceController : IDisposable
         });
     }
 
+    public void RemoveAudioPlaybackChannel(string channelName)
+    {
+        if (this.playbackChannels.TryGetValue(channelName, out var channel))
+        {
+            channel.BufferedWaveProvider.ClearBuffer();
+            this.outputSampleProvider.RemoveMixerInput(channel.VolumeSampleProvider);
+            this.playbackChannels.Remove(channelName);
+        }
+    }
+
     public void AddPlaybackSample(string channelName, WaveInEventArgs sample)
     {
         if (this.playbackChannels.TryGetValue(channelName, out var channel))
         {
             channel.BufferedWaveProvider.AddSamples(sample.Buffer, 0, sample.BytesRecorded);
+            channel.LastSampleAdded = sample;
         }
     }
 
@@ -262,14 +280,19 @@ public class AudioDeviceController : IDisposable
         }
     }
 
-    public void RemoveAudioPlaybackChannel(string channelName)
+    public bool ChannelHasActivity(string channelName)
     {
         if (this.playbackChannels.TryGetValue(channelName, out var channel))
         {
-            channel.BufferedWaveProvider.ClearBuffer();
-            this.outputSampleProvider.RemoveMixerInput(channel.VolumeSampleProvider);
-            this.playbackChannels.Remove(channelName);
+            if (channel.VolumeSampleProvider.Volume == 0.0f ||
+                channel.BufferedWaveProvider.BufferedBytes == 0 ||
+                channel.LastSampleAdded == null)
+            {
+                return false;
+            }
+            return channel.LastSampleAdded.Buffer.Any(b => b != default);
         }
+        return false;
     }
 
     private WaveInEvent GetOrCreateAudioRecordingSource()
@@ -339,6 +362,7 @@ public class AudioDeviceController : IDisposable
             this.micPlaybackWaveProvider.AddSamples(e.Buffer, 0, e.BytesRecorded);
             this.micPlaybackVolumeProvider.Volume = this.configuration.MasterVolume;
         }
+        this.LastAudioRecordingSourceData = e;
         this.OnAudioRecordingSourceDataAvailable?.Invoke(this, e);
     }
 
@@ -372,6 +396,7 @@ public class AudioDeviceController : IDisposable
         {
             this.logger.Debug("Stopping audio recording source from device #{0}", GetOrCreateAudioRecordingSource().DeviceNumber);
             GetOrCreateAudioRecordingSource().StopRecording();
+            this.LastAudioRecordingSourceData = null;
             this.recording = false;
         }
 

@@ -14,6 +14,8 @@ using System.Text;
 using Dalamud.Plugin.Services;
 using Dalamud.Plugin;
 using System.IO;
+using Dalamud.Interface.Textures.TextureWraps;
+using ProximityVoiceChat.WebRTC;
 
 namespace ProximityVoiceChat.UI.View;
 
@@ -177,24 +179,18 @@ public class MainWindow : Window, IMainWindow, IDisposable
 
         ImGui.Dummy(new Vector2(0.0f, 5.0f)); // ---------------
 
-        var resourcesDir = Path.Combine(this.pluginInterface.AssemblyLocation.Directory?.FullName!, "Resources");
-        var muteMic = this.audioDeviceController.MuteMic || this.audioDeviceController.Deafen;
-        var microphoneImageName = muteMic ? "microphone-muted.png" : "microphone.png" ;
-        var microphoneImage = this.textureProvider.GetFromFile(Path.Combine(resourcesDir, microphoneImageName)).GetWrapOrDefault();
-        if (ImGui.ImageButton(microphoneImage?.ImGuiHandle ?? default, new Vector2(20, 20)))
+        if (ImGui.ImageButton(GetMicrophoneImage(this.audioDeviceController.MuteMic, true), new Vector2(20, 20)))
         {
-            this.muteMic.OnNext(!muteMic);
+            this.muteMic.OnNext(!this.audioDeviceController.MuteMic);
         }
         if (ImGui.IsItemHovered())
         {
             ImGui.BeginTooltip();
-            ImGui.Text(muteMic ? "Turn On Microphone" : "Turn Off Microphone");
+            ImGui.Text(this.audioDeviceController.MuteMic ? "Turn On Microphone" : "Turn Off Microphone");
             ImGui.EndTooltip();
         }
         ImGui.SameLine();
-        var headphonesImageName = this.audioDeviceController.Deafen ? "headphones-deafen.png" : "headphones.png";
-        var headphonesImage = this.textureProvider.GetFromFile(Path.Combine(resourcesDir, headphonesImageName)).GetWrapOrDefault();
-        if (ImGui.ImageButton(headphonesImage?.ImGuiHandle ?? default, new Vector2(20, 20)))
+        if (ImGui.ImageButton(GetHeadphonesImage(this.audioDeviceController.Deafen, true), new Vector2(20, 20)))
         {
             this.deafen.OnNext(!this.audioDeviceController.Deafen);
         }
@@ -415,6 +411,8 @@ public class MainWindow : Window, IMainWindow, IDisposable
         {
             Vector4 color = Vector4Colors.Red;
             string tooltip = "Connection Error";
+            bool connected = false;
+            Peer? peer = null;
 
             // Assume first player is always the local player
             if (index == 0)
@@ -426,6 +424,7 @@ public class MainWindow : Window, IMainWindow, IDisposable
                     {
                         color = Vector4Colors.Green;
                         tooltip = "Connected";
+                        connected = true;
                     }
                     else if (!signalingChannel.Disconnected)
                     {
@@ -437,7 +436,7 @@ public class MainWindow : Window, IMainWindow, IDisposable
             else
             {
                 if (this.voiceRoomManager.WebRTCManager != null &&
-                    this.voiceRoomManager.WebRTCManager.Peers.TryGetValue(playerName, out var peer))
+                    this.voiceRoomManager.WebRTCManager.Peers.TryGetValue(playerName, out peer))
                 {
                     DataChannel? dataChannel = null;
                     if (peer.PeerConnection.DataChannels.Count > 0)
@@ -445,27 +444,56 @@ public class MainWindow : Window, IMainWindow, IDisposable
                         dataChannel = peer.PeerConnection.DataChannels[0];
                     }
 
-                    if (dataChannel != null && dataChannel.State == DataChannel.ChannelState.Open)
+                    if (dataChannel != null)
                     {
-                        color = Vector4Colors.Green;
-                        tooltip = "Connected";
-                    }
-                    else if (dataChannel == null || dataChannel.State == DataChannel.ChannelState.Connecting)
-                    {
-                        color = Vector4Colors.Orange;
-                        tooltip = "Connecting";
+                        if (dataChannel.State == DataChannel.ChannelState.Open)
+                        {
+                            color = Vector4Colors.Green;
+                            tooltip = "Connected";
+                            connected = true;
+                        }
+                        else if (dataChannel.State == DataChannel.ChannelState.Connecting)
+                        {
+                            color = Vector4Colors.Orange;
+                            tooltip = "Connecting";
+                        }
                     }
                 }
             }
 
-            // Connectivity indicator
+            // Connectivity/activity indicator
             var drawList = ImGui.GetWindowDrawList();
             var pos = ImGui.GetCursorScreenPos();
             var h = ImGui.GetTextLineHeightWithSpacing();
-            //pos += new Vector2(ImGui.GetWindowSize().X - 110, -h);
             var radius = 0.3f * h;
             pos += new Vector2(0, h / 2f);
-            drawList.AddCircleFilled(pos, radius, ImGui.ColorConvertFloat4ToU32(color));
+            if (index == 0)
+            {
+                if (connected &&
+                    !this.audioDeviceController.PlayingBackMicAudio &&
+                    this.audioDeviceController.LastAudioRecordingSourceData != null &&
+                    this.audioDeviceController.LastAudioRecordingSourceData.Buffer.Any(b => b != default))
+                {
+                    drawList.AddCircleFilled(pos, radius, ImGui.ColorConvertFloat4ToU32(color));
+                }
+                else
+                {
+                    drawList.AddCircle(pos, radius, ImGui.ColorConvertFloat4ToU32(color));
+                }
+            }
+            else
+            {
+                if (connected &&
+                    this.audioDeviceController.ChannelHasActivity(playerName))
+                {
+                    drawList.AddCircleFilled(pos, radius, ImGui.ColorConvertFloat4ToU32(color));
+                }
+                else
+                {
+                    drawList.AddCircle(pos, radius, ImGui.ColorConvertFloat4ToU32(color));
+                }
+            }
+            // Tooltip
             if (Vector2.Distance(ImGui.GetMousePos(), pos) < radius)
             {
                 ImGui.SetTooltip(tooltip);
@@ -473,6 +501,7 @@ public class MainWindow : Window, IMainWindow, IDisposable
             pos += new Vector2(radius + 3, -h / 2.25f);
             ImGui.SetCursorScreenPos(pos);
 
+            // Player Label
             var playerLabel = new StringBuilder(playerName);
             if (index > 0 && this.voiceRoomManager.TrackedPlayers.TryGetValue(playerName, out var tp))
             {
@@ -481,9 +510,61 @@ public class MainWindow : Window, IMainWindow, IDisposable
                 playerLabel.Append($"y, {tp.Volume:F2})");
             }
             ImGui.Text(playerLabel.ToString());
+
+            // Muted/Deafened icons
+            var iconSize = 0.9f * new Vector2(ImGui.GetTextLineHeight(), ImGui.GetTextLineHeight());
+            void DrawMicMutedIcon()
+            {
+                ImGui.SameLine();
+                ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 0.5f * (ImGui.GetTextLineHeight() - iconSize.Y));
+                ImGui.Image(GetMicrophoneImage(true, false), iconSize);
+            }
+            void DrawDeafenedIcon()
+            {
+                ImGui.SameLine();
+                ImGui.SetCursorPosX(ImGui.GetCursorPosX() - 0.2f * iconSize.X);
+                ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 0.5f * (ImGui.GetTextLineHeight() - iconSize.Y));
+                ImGui.Image(GetHeadphonesImage(true, false),  iconSize);
+            }
+            if (index == 0)
+            {
+                if (this.audioDeviceController.MuteMic)
+                {
+                    DrawMicMutedIcon();
+                }
+                if (this.audioDeviceController.Deafen)
+                {
+                    DrawDeafenedIcon();
+                }
+            }
+            else if (connected)
+            {
+                if (peer?.AudioState.HasFlag(Peer.AudioStateFlags.MicMuted) ?? false)
+                {
+                    DrawMicMutedIcon();
+                }
+                if (peer?.AudioState.HasFlag(Peer.AudioStateFlags.Deafened) ?? false)
+                {
+                    DrawDeafenedIcon();
+                }
+            }
         }
 
         ImGui.Indent(-indent);
+    }
+
+    private nint GetMicrophoneImage(bool muted, bool self)
+    {
+        var resourcesDir = Path.Combine(this.pluginInterface.AssemblyLocation.Directory?.FullName!, "Resources");
+        var imageName = muted ? (self ? "microphone-muted-self.png" : "microphone-muted.png") : "microphone.png";
+        return this.textureProvider.GetFromFile(Path.Combine(resourcesDir, imageName)).GetWrapOrDefault()?.ImGuiHandle ?? default;
+    }
+
+    private nint GetHeadphonesImage(bool deafened, bool self)
+    {
+        var resourcesDir = Path.Combine(this.pluginInterface.AssemblyLocation.Directory?.FullName!, "Resources");
+        var imageName = deafened ? (self ? "headphones-deafen-self.png" : "headphones-deafen.png") : "headphones.png";
+        return this.textureProvider.GetFromFile(Path.Combine(resourcesDir, imageName)).GetWrapOrDefault()?.ImGuiHandle ?? default;
     }
 
     private static void HelpMarker(string description)

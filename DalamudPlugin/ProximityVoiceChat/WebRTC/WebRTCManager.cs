@@ -113,9 +113,6 @@ public class WebRTCManager : IDisposable
                             await InitializePeer(c.peerId, cancellationToken: this.disconnectCts!.Token);
                         }
                         break;
-                    case "close":
-                        TryRemovePeer(message.from);
-                        break;
                     case "sdp":
                         if (verbose)
                         {
@@ -125,6 +122,12 @@ public class WebRTCManager : IDisposable
                         break;
                     case "ice":
                         UpdateIceCandidate(peers[message.from], payload.ice);
+                        break;
+                    case "update":
+                        UpdateAudioState(peers[message.from], payload.audioState);
+                        break;
+                    case "close":
+                        TryRemovePeer(message.from);
                         break;
                     default:
                         if (verbose)
@@ -244,7 +247,10 @@ public class WebRTCManager : IDisposable
         peerConnection.IceStateChanged += (IceConnectionState newState) =>
         {
             this.logger.Debug("ICE state: {0}", newState);
-            // TODO: An ICE state of closed should be marked as Connection Error in the UI
+            if (newState == IceConnectionState.Closed && peerConnection.DataChannels.Count > 0)
+            {
+                peerConnection.RemoveDataChannel(peerConnection.DataChannels[0]);
+            }
         };
 
         peerConnection.IceCandidateReadytoSend += (IceCandidate candidate) =>
@@ -344,6 +350,12 @@ public class WebRTCManager : IDisposable
                 logger.Error(e.ToString());
             }
         }
+    }
+
+    private void UpdateAudioState(Peer peer, Peer.AudioStateFlags audioState)
+    {
+        this.logger.Trace("Received new audio state from peer {0}: {1}", peer.PeerId, audioState);
+        peer.AudioState = audioState;
     }
 
     private bool TryRemovePeer(string peerId)

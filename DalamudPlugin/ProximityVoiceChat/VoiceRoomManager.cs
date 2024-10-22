@@ -29,7 +29,17 @@ public class VoiceRoomManager : IDisposable
 
     public bool InRoom { get; private set; }
 
-    public bool InPublicRoom => InRoom && string.IsNullOrEmpty(this.SignalingChannel?.RoomName);
+    public bool InPublicRoom
+    {
+        get
+        {
+#if DEBUG
+            return false;
+#else
+            return InRoom && string.IsNullOrEmpty(this.SignalingChannel?.RoomName);
+#endif
+        }
+    }
 
     public IEnumerable<string> PlayersInVoiceRoom
     {
@@ -180,6 +190,7 @@ public class VoiceRoomManager : IDisposable
         this.WebRTCManager ??= new WebRTCManager(playerName, PeerType, this.SignalingChannel, options, this.logger, true);
 
         this.SignalingChannel.OnConnected += OnSignalingServerConnected;
+        this.SignalingChannel.OnReady += OnSignalingServerReady;
         this.SignalingChannel.OnDisconnected += OnSignalingServerDisconnected;
 
         this.logger.Debug("Attempting to connect to signaling channel.");
@@ -211,9 +222,34 @@ public class VoiceRoomManager : IDisposable
         if (this.SignalingChannel != null)
         {
             this.SignalingChannel.OnConnected -= OnSignalingServerConnected;
+            this.SignalingChannel.OnReady -= OnSignalingServerReady;
             this.SignalingChannel.OnDisconnected -= OnSignalingServerDisconnected;
             this.SignalingChannel?.DisconnectAsync().SafeFireAndForget(ex => this.logger.Error(ex.ToString()));
         }
+    }
+
+    public void PushPlayerAudioState()
+    {
+        if (this.SignalingChannel == null || !this.SignalingChannel.Ready)
+        {
+            return;
+        }
+
+        var audioState = Peer.AudioStateFlags.Default;
+        if (this.audioDeviceController.MuteMic || this.audioDeviceController.PlayingBackMicAudio)
+        {
+            audioState |= Peer.AudioStateFlags.MicMuted;
+        }
+        if (this.audioDeviceController.Deafen || this.audioDeviceController.PlayingBackMicAudio)
+        {
+            audioState |= Peer.AudioStateFlags.Deafened;
+        }
+        this.logger.Trace("Pushing player audio state: {0}", audioState);
+        this.SignalingChannel.SendAsync(new SignalMessage.SignalPayload
+        {
+            action = "update",
+            audioState = audioState,
+        }).SafeFireAndForget(ex => this.logger.Error(ex.ToString()));
     }
 
     private void UpdatePlayerVolumes()
@@ -328,6 +364,11 @@ public class VoiceRoomManager : IDisposable
         this.audioDeviceController.AudioRecordingIsRequested = true;
         this.audioDeviceController.AudioPlaybackIsRequested = true;
         this.audioDeviceController.OnAudioRecordingSourceDataAvailable += SendAudioSampleToAllPeers;
+    }
+
+    private void OnSignalingServerReady()
+    {
+        PushPlayerAudioState();
     }
 
     private void OnSignalingServerDisconnected()

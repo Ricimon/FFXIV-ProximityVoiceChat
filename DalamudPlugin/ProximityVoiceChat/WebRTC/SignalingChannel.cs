@@ -14,15 +14,18 @@ namespace ProximityVoiceChat.WebRTC;
 public class SignalingChannel : IDisposable
 {
     public bool Connected => !(this.disconnectCts?.IsCancellationRequested ?? false) && this.socket.Connected;
+    public bool Ready => this.Connected && this.ready;
     public bool Disconnected { get; private set; }
     public string? RoomName { get; private set; }
 
     public event Action? OnConnected;
+    public event Action? OnReady;
     public event Action<SocketIOResponse>? OnMessage;
     public event Action? OnDisconnected;
 
     private CancellationTokenSource? disconnectCts;
     private string? roomPassword;
+    private bool ready;
 
     private readonly string peerId;
     private readonly string peerType;
@@ -58,6 +61,7 @@ public class SignalingChannel : IDisposable
             this.logger.Error("Signaling server is already connected.");
             return Task.CompletedTask;
         }
+        this.ready = false;
         this.disconnectCts?.Dispose();
         this.disconnectCts = new();
         this.Disconnected = false;
@@ -118,6 +122,7 @@ public class SignalingChannel : IDisposable
     public void Dispose()
     {
         this.OnConnected = null;
+        this.OnReady = null;
         this.OnMessage = null;
         this.OnDisconnected = null;
         this.RemoveListeners();
@@ -224,6 +229,12 @@ public class SignalingChannel : IDisposable
         //    this.logger.Trace("Signaling server message: {0}", response);
         //}
         this.OnMessage?.Invoke(response);
+        // Assume that any message callback implies readiness
+        if (!this.ready)
+        {
+            this.ready = true;
+            this.OnReady?.Invoke();
+        }
     }
 
     private void OnServerDisconnect(SocketIOResponse response)

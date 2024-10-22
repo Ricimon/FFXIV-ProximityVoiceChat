@@ -37,6 +37,7 @@ namespace ProximityVoiceChat.WebRTC
             public bool bePolite;
             public RTCSessionDescriptionInit sdp;
             public IcePayload ice;
+            public Peer.AudioStateFlags audioState;
         }
 
         public string from;

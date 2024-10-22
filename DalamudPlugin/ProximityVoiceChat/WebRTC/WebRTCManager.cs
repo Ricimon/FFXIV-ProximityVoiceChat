@@ -89,7 +89,7 @@ public class WebRTCManager : IDisposable
             {
                 foreach (var c in payload.connections)
                 {
-                    AddPeer(c.peerId, c.peerType, payload.bePolite);
+                    AddPeer(c.peerId, c.peerType, payload.bePolite.GetValueOrDefault());
                     UpdateAudioState(peers[c.peerId], c.audioState);
                 }
             }

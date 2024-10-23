@@ -119,6 +119,7 @@ public class AudioDeviceController : IDisposable
         public required VolumeSampleProvider VolumeSampleProvider { get; set; }
         public required BufferedWaveProvider BufferedWaveProvider { get; set; }
         public WaveInEventArgs? LastSampleAdded { get; set; }
+        public int LastSampleAddedTimestampMs { get; set; }
     }
 
     private WaveInEvent? audioRecordingSource;
@@ -127,6 +128,7 @@ public class AudioDeviceController : IDisposable
     private bool playingBack;
 
     private readonly WaveFormat waveFormat = WaveFormat.CreateIeeeFloatWaveFormat(16000, 1);
+    // AverageBytesPerSecond is sampleRate * 4 = 64000
     private readonly Dictionary<string, PlaybackChannel> playbackChannels = [];
     private readonly BufferedWaveProvider micPlaybackWaveProvider;
     private readonly VolumeSampleProvider micPlaybackVolumeProvider;
@@ -136,25 +138,28 @@ public class AudioDeviceController : IDisposable
 
     public static byte[] ConvertAudioSampleToByteArray(WaveInEventArgs args)
     {
-        var newArray = new byte[args.Buffer.Length + sizeof(int)];
-        args.Buffer.CopyTo(newArray, sizeof(int));
-        BinaryPrimitives.WriteInt32BigEndian(newArray, args.BytesRecorded);
+        var newArray = new byte[args.Buffer.Length + 1];
+        newArray[0] = (byte)args.BytesRecorded;
+        args.Buffer.CopyTo(newArray, 1);
         return newArray;
     }
 
     public static bool TryParseAudioSampleBytes(byte[] bytes, out WaveInEventArgs? args)
     {
         args = null;
-        if (bytes.Length < sizeof(int))
+        if (bytes.Length < 1)
         {
             return false;
         }
         Span<byte> bytesSpan = bytes;
-        if (!BinaryPrimitives.TryReadInt32BigEndian(bytesSpan[..sizeof(int)], out var bytesRecorded))
+        int bytesRecorded = bytes[0];
+        // We can assume that a byte value of 0 is an overflown value of 256,
+        // as our input buffer is 256 bytes.
+        if (bytesRecorded == 0)
         {
-            return false;
+            bytesRecorded = 1 << 8;
         }
-        args = new WaveInEventArgs(bytesSpan[sizeof(int)..].ToArray(), bytesRecorded);
+        args = new WaveInEventArgs(bytesSpan[1..].ToArray(), bytesRecorded);
         return true;
     }
 
@@ -225,7 +230,6 @@ public class AudioDeviceController : IDisposable
         }
         var bfp = new BufferedWaveProvider(this.waveFormat)
         {
-            BufferDuration = TimeSpan.FromSeconds(0.5),
             DiscardOnBufferOverflow = true,
         };
         var vsp = new VolumeSampleProvider(bfp.ToSampleProvider());
@@ -253,6 +257,7 @@ public class AudioDeviceController : IDisposable
         {
             channel.BufferedWaveProvider.AddSamples(sample.Buffer, 0, sample.BytesRecorded);
             channel.LastSampleAdded = sample;
+            channel.LastSampleAddedTimestampMs = Environment.TickCount;
         }
     }
 
@@ -284,9 +289,21 @@ public class AudioDeviceController : IDisposable
     {
         if (this.playbackChannels.TryGetValue(channelName, out var channel))
         {
-            if (channel.VolumeSampleProvider.Volume == 0.0f ||
-                channel.BufferedWaveProvider.BufferedBytes == 0 ||
-                channel.LastSampleAdded == null)
+            if (channel.VolumeSampleProvider.Volume == 0.0f)
+            {
+                return false;
+            }
+            if (channel.LastSampleAdded == null)
+            {
+                return false;
+            }
+            // Recording the timestamp of the last added sample allows us to keep the sample valid
+            // for activity purposes for longer.
+            // This patches an issue where a buffer read would clear the buffer and indicate no
+            // channel activity until the next sample was added (this would manifest as a rapidly
+            // blinking activity indicator if the read/write buffers were small enough)
+            if (channel.LastSampleAddedTimestampMs + 100 < Environment.TickCount &&
+                channel.BufferedWaveProvider.BufferedBytes == 0)
             {
                 return false;
             }
@@ -303,6 +320,10 @@ public class AudioDeviceController : IDisposable
             {
                 DeviceNumber = this.AudioRecordingDeviceIndex,
                 WaveFormat = this.waveFormat,
+                // This enforces a buffer size of 256 regardless of wave format sample rate
+                BufferMilliseconds = 256 / (this.waveFormat.AverageBytesPerSecond / 1000),
+                // This is a bit arbitrary
+                NumberOfBuffers = 10,
             };
 
             this.audioRecordingSource.RecordingStopped += (object? sender, StoppedEventArgs e) =>
@@ -329,10 +350,14 @@ public class AudioDeviceController : IDisposable
     {
         if (this.audioPlaybackSource == null)
         {
+            // This is a bit arbitrary
+            var bufferCount = 10;
             this.audioPlaybackSource = new WaveOutEvent
             {
                 DeviceNumber = this.AudioPlaybackDeviceIndex,
-                DesiredLatency = 150,
+                // This enforces a playback buffer size of 256 bytes
+                DesiredLatency = 256 / (this.waveFormat.AverageBytesPerSecond / 1000) * bufferCount - (bufferCount - 1),
+                NumberOfBuffers = bufferCount,
             };
             this.audioPlaybackSource.PlaybackStopped += (object? sender, StoppedEventArgs e) =>
             {

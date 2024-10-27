@@ -97,11 +97,29 @@
           "SocketIO.Serializer.SystemTextJson": "3.1.2"
         }
       },
+      "WebRtcVadSharp": {
+        "type": "Direct",
+        "requested": "[1.3.2, )",
+        "resolved": "1.3.2",
+        "contentHash": "OzGRrbWRCAaH5bN81wO0VtUcGLfH+oneY6XwjRqLDdYJX7GqJGJ2o+GH0kdcP3Hc1uXrqKx/TEe+Uw29b1L9mw=="
+      },
+      "WindowsInput": {
+        "type": "Direct",
+        "requested": "[6.4.1, )",
+        "resolved": "6.4.1",
+        "contentHash": "wfg9uu5xDvBcaNqvR1ZTFQqBf4bKzkxdd5WviTZPy4cAywEzLzofuYswZB3nGIEnnlwGLBGSgrNOEZH/w8JI9w=="
+      },
       "YamlDotNet": {
         "type": "Direct",
-        "requested": "[16.1.2, )",
-        "resolved": "16.1.2",
-        "contentHash": "VHBamNzHIKqkdWgYrGk48mEos+lVDFHzJyk0JiFYydoViSiCNIdoDTL3kaqAh+exQ2m2ZgZQphBgaOngR1fYjg=="
+        "requested": "[16.1.3, )",
+        "resolved": "16.1.3",
+        "contentHash": "gtHGiDvU9VTtWte8f0thIM38cL1oowOjStKpeAEKKfA+Rc4AvekJzqFDZiiPcc4kw00ZiwR4OTJS56L16q98DQ=="
+      },
+      "YellowDogMan.RRNoise.NET": {
+        "type": "Direct",
+        "requested": "[0.1.6, )",
+        "resolved": "0.1.6",
+        "contentHash": "YgsS+5mW0PF+LlbLfDLGpErSzvlv0EYKOnByr/pzpzJTofMzC/Bo572ynjkP5BBL3XnyN4+j75e8JcKOZz3pfA=="
       },
       "Castle.Core": {
         "type": "Transitive",

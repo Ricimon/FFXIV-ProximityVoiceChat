@@ -6,6 +6,9 @@ using System.Reactive.Linq;
 using ProximityVoiceChat.Log;
 using ProximityVoiceChat.UI.View;
 using ProximityVoiceChat.Extensions;
+using WindowsInput;
+using WindowsInput.Events.Sources;
+using WindowsInput.Events;
 
 namespace ProximityVoiceChat.UI.Presenter;
 
@@ -30,9 +33,14 @@ public class MainWindowPresenter(
 
     private readonly CompositeDisposable disposables = new();
 
+    private IKeyboardEventSource? keyboard;
+    private IMouseEventSource? mouse;
+
     public void Dispose()
     {
         this.disposables.Dispose();
+        this.keyboard?.Dispose();
+        this.mouse?.Dispose();
     }
 
     public void SetupBindings()
@@ -54,6 +62,10 @@ public class MainWindowPresenter(
                 this.voiceRoomManager.PushPlayerAudioState();
             },
             this.audioDeviceController.PlayingBackMicAudio);
+        Bind(this.view.PushToTalk,
+            b => { this.configuration.PushToTalk = b; this.configuration.Save(); }, this.configuration.PushToTalk);
+        Bind(this.view.SuppressNoise,
+            b => { this.configuration.SuppressNoise = b; this.configuration.Save(); }, this.configuration.SuppressNoise);
 
         Bind(this.view.PublicRoom,
             b => { this.configuration.PublicRoom = b; this.configuration.Save(); }, this.configuration.PublicRoom);
@@ -122,6 +134,28 @@ public class MainWindowPresenter(
         });
 
         this.view.LeaveVoiceRoom.Subscribe(_ => this.voiceRoomManager.LeaveVoiceRoom());
+
+        this.view.EditingPushToTalkKeybind.Subscribe(b =>
+        {
+            if (b)
+            {
+                this.keyboard ??= Capture.Global.KeyboardAsync();
+                this.keyboard.KeyDown += OnKeyboardKeyDown;
+                this.mouse ??= Capture.Global.MouseAsync();
+                this.mouse.ButtonDown += OnMouseButtonDown;
+            }
+            else
+            {
+                if (this.keyboard != null)
+                {
+                    this.keyboard.KeyDown -= OnKeyboardKeyDown;
+                }
+                if (this.mouse != null)
+                {
+                    this.mouse.ButtonDown -= OnMouseButtonDown;
+                }
+            }
+        });
     }
 
     private void Bind<T>(
@@ -134,5 +168,36 @@ public class MainWindowPresenter(
             reactiveProperty.Value = initialValue;
         }
         reactiveProperty.Subscribe(dataUpdateAction);
+    }
+
+    private void OnKeyboardKeyDown(object? o, EventSourceEventArgs<KeyDown> e)
+    {
+        this.configuration.PushToTalkKeybind = e.Data.Key;
+        if (this.view.EditingPushToTalkKeybind.Value)
+        {
+            this.view.EditingPushToTalkKeybind.Value = false;
+        }
+    }
+
+    private void OnMouseButtonDown(object? o, EventSourceEventArgs<ButtonDown> e)
+    {
+        // Only accept mouse4 and mouse5
+        if (e.Data.Button == ButtonCode.XButton1)
+        {
+            this.configuration.PushToTalkKeybind = KeyCode.XButton1;
+        }
+        else if (e.Data.Button == ButtonCode.XButton2)
+        {
+            this.configuration.PushToTalkKeybind = KeyCode.XButton2;
+        }
+        else
+        {
+            return;
+        }
+
+        if (this.view.EditingPushToTalkKeybind.Value)
+        {
+            this.view.EditingPushToTalkKeybind.Value = false;
+        }
     }
 }

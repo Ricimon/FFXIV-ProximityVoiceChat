@@ -14,8 +14,8 @@ using System.Text;
 using Dalamud.Plugin.Services;
 using Dalamud.Plugin;
 using System.IO;
-using Dalamud.Interface.Textures.TextureWraps;
 using ProximityVoiceChat.WebRTC;
+using System.Windows.Input;
 
 namespace ProximityVoiceChat.UI.View;
 
@@ -41,6 +41,9 @@ public class MainWindow : Window, IMainWindow, IDisposable
     public IReactiveProperty<int> SelectedAudioInputDeviceIndex { get; } = new ReactiveProperty<int>(-1);
     public IReactiveProperty<int> SelectedAudioOutputDeviceIndex { get; } = new ReactiveProperty<int>(-1);
     public IReactiveProperty<bool> PlayingBackMicAudio { get; } = new ReactiveProperty<bool>();
+    public IReactiveProperty<bool> PushToTalk { get; } = new ReactiveProperty<bool>();
+    public IReactiveProperty<bool> EditingPushToTalkKeybind { get; } = new ReactiveProperty<bool>();
+    public IReactiveProperty<bool> SuppressNoise { get; } = new ReactiveProperty<bool>();
 
     public IObservable<bool> MuteMic => muteMic.AsObservable();
     private readonly Subject<bool> muteMic = new();
@@ -66,6 +69,7 @@ public class MainWindow : Window, IMainWindow, IDisposable
     private readonly ITextureProvider textureProvider;
     private readonly AudioDeviceController audioDeviceController;
     private readonly VoiceRoomManager voiceRoomManager;
+    private readonly Configuration configuration;
     private readonly string[] falloffTypes;
 
     public MainWindow(
@@ -73,7 +77,8 @@ public class MainWindow : Window, IMainWindow, IDisposable
         IDalamudPluginInterface pluginInterface,
         ITextureProvider textureProvider,
         AudioDeviceController audioDeviceController,
-        VoiceRoomManager voiceRoomManager) : base(
+        VoiceRoomManager voiceRoomManager,
+        Configuration configuration) : base(
         PluginInitializer.Name)
     {
         this.windowSystem = windowSystem ?? throw new ArgumentNullException(nameof(windowSystem));
@@ -81,6 +86,7 @@ public class MainWindow : Window, IMainWindow, IDisposable
         this.textureProvider = textureProvider ?? throw new ArgumentNullException(nameof(textureProvider));
         this.audioDeviceController = audioDeviceController ?? throw new ArgumentNullException(nameof(audioDeviceController));
         this.voiceRoomManager = voiceRoomManager ?? throw new ArgumentNullException(nameof(voiceRoomManager));
+        this.configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         this.falloffTypes = Enum.GetNames(typeof(AudioFalloffModel.FalloffType));
         windowSystem.AddWindow(this);
     }
@@ -89,6 +95,7 @@ public class MainWindow : Window, IMainWindow, IDisposable
     {
         if (!Visible)
         {
+            EditingPushToTalkKeybind.Value = false;
             return;
         }
 
@@ -217,7 +224,6 @@ public class MainWindow : Window, IMainWindow, IDisposable
                 ImGui.TableSetupColumn("AudioDevicesCol2", ImGuiTableColumnFlags.WidthFixed, 230);
 
                 ImGui.TableNextRow(); ImGui.TableNextColumn();
-                //var rightPad = 110;
 
                 ImGui.AlignTextToFramePadding();
                 ImGui.Text("Input Device"); ImGui.TableNextColumn();
@@ -242,9 +248,42 @@ public class MainWindow : Window, IMainWindow, IDisposable
 
                 ImGui.EndTable();
             }
+
             if (ImGui.Button(this.PlayingBackMicAudio.Value ? "Stop Mic Playback" : "Test Mic Playback"))
             {
                 this.PlayingBackMicAudio.Value = !this.PlayingBackMicAudio.Value;
+            }
+
+            ImGui.BeginDisabled();
+            var pushToTalk = this.PushToTalk.Value;
+            if (ImGui.Checkbox("Push to Talk", ref pushToTalk))
+            {
+                this.PushToTalk.Value = pushToTalk;
+            }
+            if (pushToTalk)
+            {
+                ImGui.SameLine();
+                if (ImGui.Button(this.EditingPushToTalkKeybind.Value ? 
+                        "Recording..." :
+                        this.configuration.PushToTalkKeybind.ToString(),
+                    new Vector2(5 * ImGui.GetFontSize(), 0)))
+                {
+                    this.EditingPushToTalkKeybind.Value = !this.EditingPushToTalkKeybind.Value;
+                }
+                ImGui.SameLine();
+                ImGui.Text("Keybind");
+            }
+            else
+            {
+                this.EditingPushToTalkKeybind.Value = false;
+            }
+            ImGui.EndDisabled();
+            ImGui.SameLine(); HelpMarker("Coming soon");
+
+            var suppressNoise = this.SuppressNoise.Value;
+            if (ImGui.Checkbox("Suppress Noise", ref suppressNoise))
+            {
+                this.SuppressNoise.Value = suppressNoise;
             }
         }
 
@@ -471,8 +510,7 @@ public class MainWindow : Window, IMainWindow, IDisposable
             {
                 if (connected &&
                     !this.audioDeviceController.PlayingBackMicAudio &&
-                    this.audioDeviceController.LastAudioRecordingSourceData != null &&
-                    this.audioDeviceController.LastAudioRecordingSourceData.Buffer.Any(b => b != default))
+                    this.audioDeviceController.RecordingDataHasActivity)
                 {
                     drawList.AddCircleFilled(pos, radius, ImGui.ColorConvertFloat4ToU32(color));
                 }

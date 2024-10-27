@@ -5,6 +5,8 @@ using System.Linq;
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
 using ProximityVoiceChat.Log;
+using RNNoise.NET;
+using WebRtcVadSharp;
 
 namespace ProximityVoiceChat;
 
@@ -112,7 +114,10 @@ public class AudioDeviceController : IDisposable
     private int audioPlaybackDeviceIndex;
 
     public event EventHandler<WaveInEventArgs>? OnAudioRecordingSourceDataAvailable;
-    public WaveInEventArgs? LastAudioRecordingSourceData;
+    public bool RecordingDataHasActivity => lastAudioRecordingSourceData != null &&
+        (this.configuration.SuppressNoise ?
+            this.voiceActivityDetector.HasSpeech(this.lastAudioRecordingSourceData.Buffer) :
+            this.lastAudioRecordingSourceData.Buffer.Any(b => b != default));
 
     private class PlaybackChannel
     {
@@ -126,40 +131,47 @@ public class AudioDeviceController : IDisposable
     private WaveOutEvent? audioPlaybackSource;
     private bool recording;
     private bool playingBack;
+    private WaveInEventArgs? lastAudioRecordingSourceData;
 
-    private readonly WaveFormat waveFormat = WaveFormat.CreateIeeeFloatWaveFormat(16000, 1);
-    // AverageBytesPerSecond is sampleRate * 4 = 64000
+    private const int SampleRate = 48000; // RNNoise frequency
+    private const int FrameLength = 20; // 20 ms, for max compatibility
+
+    private readonly WaveFormat waveFormat = new(rate: 48000, bits: 16, channels: 1);
     private readonly Dictionary<string, PlaybackChannel> playbackChannels = [];
     private readonly BufferedWaveProvider micPlaybackWaveProvider;
     private readonly VolumeSampleProvider micPlaybackVolumeProvider;
     private readonly MixingSampleProvider outputSampleProvider;
+    private readonly Denoiser denoiser = new();
+    private readonly float[] denoiserFloatSamples = new float[GetSampleSize(SampleRate, FrameLength, 1) / 2];
+    private readonly WebRtcVad voiceActivityDetector = new()
+    {
+        FrameLength = WebRtcVadSharp.FrameLength.Is20ms,
+        SampleRate = WebRtcVadSharp.SampleRate.Is48kHz,
+    };
     private readonly Configuration configuration;
     private readonly ILogger logger;
 
     public static byte[] ConvertAudioSampleToByteArray(WaveInEventArgs args)
     {
-        var newArray = new byte[args.Buffer.Length + 1];
-        newArray[0] = (byte)args.BytesRecorded;
-        args.Buffer.CopyTo(newArray, 1);
+        var newArray = new byte[args.Buffer.Length + sizeof(ushort)];
+        BinaryPrimitives.WriteUInt16BigEndian(newArray, (ushort)args.BytesRecorded);
+        args.Buffer.CopyTo(newArray, sizeof(ushort));
         return newArray;
     }
 
     public static bool TryParseAudioSampleBytes(byte[] bytes, out WaveInEventArgs? args)
     {
         args = null;
-        if (bytes.Length < 1)
+        if (bytes.Length < sizeof(ushort))
         {
             return false;
         }
         Span<byte> bytesSpan = bytes;
-        int bytesRecorded = bytes[0];
-        // We can assume that a byte value of 0 is an overflown value of 256,
-        // as our input buffer is 256 bytes.
-        if (bytesRecorded == 0)
+        if (!BinaryPrimitives.TryReadUInt16BigEndian(bytesSpan[..sizeof(ushort)], out var bytesRecorded))
         {
-            bytesRecorded = 1 << 8;
+            return false;
         }
-        args = new WaveInEventArgs(bytesSpan[1..].ToArray(), bytesRecorded);
+        args = new WaveInEventArgs(bytesSpan[sizeof(ushort)..].ToArray(), bytesRecorded);
         return true;
     }
 
@@ -175,11 +187,10 @@ public class AudioDeviceController : IDisposable
 
         this.micPlaybackWaveProvider = new BufferedWaveProvider(this.waveFormat);
         this.micPlaybackVolumeProvider = new VolumeSampleProvider(this.micPlaybackWaveProvider.ToSampleProvider());
-        this.outputSampleProvider = new MixingSampleProvider(this.waveFormat)
+        this.outputSampleProvider = new MixingSampleProvider([this.micPlaybackVolumeProvider])
         {
             ReadFully = true,
         };
-        this.outputSampleProvider.AddMixerInput(this.micPlaybackVolumeProvider);
     }
 
     public void Dispose()
@@ -307,7 +318,7 @@ public class AudioDeviceController : IDisposable
             {
                 return false;
             }
-            return channel.LastSampleAdded.Buffer.Any(b => b != default);
+            return this.voiceActivityDetector.HasSpeech(channel.LastSampleAdded.Buffer);
         }
         return false;
     }
@@ -320,10 +331,7 @@ public class AudioDeviceController : IDisposable
             {
                 DeviceNumber = this.AudioRecordingDeviceIndex,
                 WaveFormat = this.waveFormat,
-                // This enforces a buffer size of 256 regardless of wave format sample rate
-                BufferMilliseconds = 256 / (this.waveFormat.AverageBytesPerSecond / 1000),
-                // This is a bit arbitrary
-                NumberOfBuffers = 10,
+                BufferMilliseconds = 20, // 20 ms for max compatibility
             };
 
             this.audioRecordingSource.RecordingStopped += (object? sender, StoppedEventArgs e) =>
@@ -350,14 +358,12 @@ public class AudioDeviceController : IDisposable
     {
         if (this.audioPlaybackSource == null)
         {
-            // This is a bit arbitrary
-            var bufferCount = 10;
             this.audioPlaybackSource = new WaveOutEvent
             {
                 DeviceNumber = this.AudioPlaybackDeviceIndex,
-                // This enforces a playback buffer size of 256 bytes
-                DesiredLatency = 256 / (this.waveFormat.AverageBytesPerSecond / 1000) * bufferCount - (bufferCount - 1),
-                NumberOfBuffers = bufferCount,
+                // These values were hand-picked to maintain lowest latency without artifacting
+                DesiredLatency = 100,
+                NumberOfBuffers = 3,
             };
             this.audioPlaybackSource.PlaybackStopped += (object? sender, StoppedEventArgs e) =>
             {
@@ -382,12 +388,18 @@ public class AudioDeviceController : IDisposable
     private void OnAudioSourceDataAvailable(object? sender, WaveInEventArgs e)
     {
         //this.logger.Trace("Audio data received from recording device: {0} bytes recorded, {1}", e.BytesRecorded, e.Buffer);
+        if (this.configuration.SuppressNoise)
+        {
+            Convert16BitToFloat(e.Buffer, this.denoiserFloatSamples);
+            this.denoiser.Denoise(this.denoiserFloatSamples);
+            ConvertFloatTo16Bit(this.denoiserFloatSamples, e.Buffer);
+        }
         if (this.audioPlaybackSource != null && this.PlayingBackMicAudio)
         {
             this.micPlaybackWaveProvider.AddSamples(e.Buffer, 0, e.BytesRecorded);
             this.micPlaybackVolumeProvider.Volume = this.configuration.MasterVolume;
         }
-        this.LastAudioRecordingSourceData = e;
+        this.lastAudioRecordingSourceData = e;
         this.OnAudioRecordingSourceDataAvailable?.Invoke(this, e);
     }
 
@@ -421,7 +433,7 @@ public class AudioDeviceController : IDisposable
         {
             this.logger.Debug("Stopping audio recording source from device #{0}", GetOrCreateAudioRecordingSource().DeviceNumber);
             GetOrCreateAudioRecordingSource().StopRecording();
-            this.LastAudioRecordingSourceData = null;
+            this.lastAudioRecordingSourceData = null;
             this.recording = false;
         }
 
@@ -440,6 +452,58 @@ public class AudioDeviceController : IDisposable
             this.logger.Debug("Stopping audio playback source from device #{0}", GetOrCreateAudioPlaybackSource().DeviceNumber);
             GetOrCreateAudioPlaybackSource().Stop();
             this.playingBack = false;
+        }
+    }
+
+    // Utility methods taken from https://github.com/realcoloride/OpenVoiceSharp/blob/master/VoiceUtilities.cs
+
+    /// <summary>
+    /// Gets the sample size for a frame.
+    /// </summary>
+    /// <param name="channels">Set 1 for mono and 2 for stereo</param>
+    /// <param name="float32">Float32 size is half</param>
+    /// <returns></returns>
+    private static int GetSampleSize(int sampleRate, int timeLengthMs, int channels)
+        => ((int)(sampleRate * 16f / 8f * (timeLengthMs / 1000f) * channels));
+
+    /// <summary>
+    /// Converts 16 bit PCM data into float 32.
+    /// Note that the float array must be half the size of the byte array.
+    /// </summary>
+    /// <param name="input">The 16 bit PCM data according to your needs.</param>
+    /// <param name="output">The output data in which the result will be returned.</param>
+    /// <returns>The 16 bit byte array.</returns>
+    private static void Convert16BitToFloat(byte[] input, float[] output)
+    {
+        int outputIndex = 0;
+        short sample;
+
+        for (int n = 0; n < output.Length; n++)
+        {
+            sample = BitConverter.ToInt16(input, n * 2);
+            output[outputIndex++] = sample / 32768f;
+        }
+    }
+
+    /// <summary>
+    /// Converts float 32 PCM data into 16 bit.
+    /// Note that the byte array must be double the size of the float array.
+    /// </summary>
+    /// <param name="input">The float 32 PCM data according to your needs.</param>
+    /// <param name="output">The output data in which the result will be returned.</param>
+    /// <returns>The float32 PCM array.</returns>
+    private static void ConvertFloatTo16Bit(float[] input, byte[] output)
+    {
+        int sampleIndex = 0, pcmIndex = 0;
+
+        while (sampleIndex < input.Length)
+        {
+            short outsample = (short)(input[sampleIndex] * short.MaxValue);
+            output[pcmIndex] = (byte)(outsample & 0xff);
+            output[pcmIndex + 1] = (byte)((outsample >> 8) & 0xff);
+
+            sampleIndex++;
+            pcmIndex += 2;
         }
     }
 }

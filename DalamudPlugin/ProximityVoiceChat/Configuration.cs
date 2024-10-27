@@ -2,6 +2,7 @@
 using Dalamud.Plugin;
 using NLog;
 using System;
+using WindowsInput.Events;
 
 namespace ProximityVoiceChat
 {
@@ -17,6 +18,9 @@ namespace ProximityVoiceChat
 
         public int SelectedAudioInputDeviceIndex { get; set; } = -1;
         public int SelectedAudioOutputDeviceIndex { get; set; } = -1;
+        public bool PushToTalk { get; set; }
+        public KeyCode PushToTalkKeybind { get; set; }
+        public bool SuppressNoise { get; set; } = true;
 
         public bool MuteMic { get; set; }
         public bool Deafen { get; set; }

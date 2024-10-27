@@ -8,6 +8,7 @@ using ProximityVoiceChat.Log;
 using ProximityVoiceChat.Ninject;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using WebRtcVadSharp;
 
 namespace ProximityVoiceChat;
 
@@ -33,8 +34,9 @@ public sealed class PluginInitializer : IDalamudPlugin
 
     public PluginInitializer()
     {
-        // For whatever reason this is needed to load Windows MixedReality-WebRTC
+        // For whatever reason this is needed to load certain dlls
         NativeLibrary.SetDllImportResolver(typeof(PeerConnection).Assembly, (_, assembly, path) => NativeLibrary.Load("mrwebrtc.dll", assembly, path));
+        NativeLibrary.SetDllImportResolver(typeof(WebRtcVad).Assembly, (_, assembly, path) => NativeLibrary.Load("WebRtcVad.dll", assembly, path));
 
         this.kernel = new StandardKernel(new PluginModule(), new FuncModule());
 

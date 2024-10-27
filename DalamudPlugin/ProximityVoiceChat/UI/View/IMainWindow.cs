@@ -16,6 +16,9 @@ public interface IMainWindow : IPluginUIView
     public IReactiveProperty<int> SelectedAudioInputDeviceIndex { get; }
     public IReactiveProperty<int> SelectedAudioOutputDeviceIndex { get; }
     public IReactiveProperty<bool> PlayingBackMicAudio { get; }
+    public IReactiveProperty<bool> PushToTalk { get; }
+    public IReactiveProperty<bool> EditingPushToTalkKeybind { get; }
+    public IReactiveProperty<bool> SuppressNoise { get; }
 
     public IObservable<bool> MuteMic { get; }
     public IObservable<bool> Deafen { get; }

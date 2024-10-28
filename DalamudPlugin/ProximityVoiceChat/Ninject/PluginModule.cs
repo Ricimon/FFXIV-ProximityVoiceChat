@@ -36,6 +36,7 @@ public class PluginModule : NinjectModule
         Bind<IDalamudHook>().To<PluginUIContainer>().InSingletonScope();
         Bind<IDalamudHook>().To<CommandDispatcher>().InSingletonScope();
         Bind<Configuration>().ToMethod(GetConfiguration).InSingletonScope();
+        Bind<InputEventSource>().ToSelf().InSingletonScope();
         Bind<AudioDeviceController>().ToSelf().InSingletonScope();
         Bind<VoiceRoomManager>().ToSelf().InSingletonScope();
         Bind<WebRTCDataChannelHandler>().ToSelf();

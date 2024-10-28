@@ -6,7 +6,6 @@ using System.Reactive.Linq;
 using ProximityVoiceChat.Log;
 using ProximityVoiceChat.UI.View;
 using ProximityVoiceChat.Extensions;
-using WindowsInput;
 using WindowsInput.Events.Sources;
 using WindowsInput.Events;
 
@@ -16,9 +15,10 @@ public class MainWindowPresenter(
     IMainWindow view,
     Configuration configuration,
     IClientState clientState,
-    IObjectTable objectTable,
+    IFramework framework,
     AudioDeviceController audioInputController,
     VoiceRoomManager voiceRoomManager,
+    InputEventSource inputEventSource,
     ILogger logger) : IPluginUIPresenter, IDisposable
 {
     public IPluginUIView View => this.view;
@@ -26,21 +26,18 @@ public class MainWindowPresenter(
     private readonly IMainWindow view = view ?? throw new ArgumentNullException(nameof(view));
     private readonly Configuration configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
     private readonly IClientState clientState = clientState ?? throw new ArgumentNullException(nameof(clientState));
-    private readonly IObjectTable objectTable = objectTable ?? throw new ArgumentNullException(nameof(objectTable));
+    private readonly IFramework framework = framework ?? throw new ArgumentNullException(nameof(framework));
     private readonly AudioDeviceController audioDeviceController = audioInputController ?? throw new ArgumentNullException(nameof(audioInputController));
     private readonly VoiceRoomManager voiceRoomManager = voiceRoomManager ?? throw new ArgumentNullException(nameof(voiceRoomManager));
+    private readonly InputEventSource inputEventSource = inputEventSource ?? throw new ArgumentNullException(nameof(inputEventSource));
     private readonly ILogger logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
-    private readonly CompositeDisposable disposables = new();
-
-    private IKeyboardEventSource? keyboard;
-    private IMouseEventSource? mouse;
+    private readonly CompositeDisposable disposables = [];
 
     public void Dispose()
     {
         this.disposables.Dispose();
-        this.keyboard?.Dispose();
-        this.mouse?.Dispose();
+        GC.SuppressFinalize(this);
     }
 
     public void SetupBindings()
@@ -139,22 +136,17 @@ public class MainWindowPresenter(
         {
             if (b)
             {
-                this.keyboard ??= Capture.Global.KeyboardAsync();
-                this.keyboard.KeyDown += OnKeyboardKeyDown;
-                this.mouse ??= Capture.Global.MouseAsync();
-                this.mouse.ButtonDown += OnMouseButtonDown;
+                this.inputEventSource.SubscribeToKeyDown(OnInputKeyDown);
             }
             else
             {
-                if (this.keyboard != null)
-                {
-                    this.keyboard.KeyDown -= OnKeyboardKeyDown;
-                }
-                if (this.mouse != null)
-                {
-                    this.mouse.ButtonDown -= OnMouseButtonDown;
-                }
+                this.inputEventSource.UnsubscribeToKeyDown(OnInputKeyDown);
             }
+        });
+        this.view.ClearPushToTalkKeybind.Subscribe(_ =>
+        {
+            this.configuration.PushToTalkKeybind = default;
+            this.configuration.Save();
         });
     }
 
@@ -170,34 +162,18 @@ public class MainWindowPresenter(
         reactiveProperty.Subscribe(dataUpdateAction);
     }
 
-    private void OnKeyboardKeyDown(object? o, EventSourceEventArgs<KeyDown> e)
+    private void OnInputKeyDown(KeyDown k)
     {
-        this.configuration.PushToTalkKeybind = e.Data.Key;
-        if (this.view.EditingPushToTalkKeybind.Value)
+        this.configuration.PushToTalkKeybind = k.Key;
+        this.configuration.Save();
+        // This callback can be called from a non-framework thread, and UI values should only be modified
+        // on the framework thread (or else the game can crash)
+        this.framework.Run(() =>
         {
-            this.view.EditingPushToTalkKeybind.Value = false;
-        }
-    }
-
-    private void OnMouseButtonDown(object? o, EventSourceEventArgs<ButtonDown> e)
-    {
-        // Only accept mouse4 and mouse5
-        if (e.Data.Button == ButtonCode.XButton1)
-        {
-            this.configuration.PushToTalkKeybind = KeyCode.XButton1;
-        }
-        else if (e.Data.Button == ButtonCode.XButton2)
-        {
-            this.configuration.PushToTalkKeybind = KeyCode.XButton2;
-        }
-        else
-        {
-            return;
-        }
-
-        if (this.view.EditingPushToTalkKeybind.Value)
-        {
-            this.view.EditingPushToTalkKeybind.Value = false;
-        }
+            if (this.view.EditingPushToTalkKeybind.Value)
+            {
+                this.view.EditingPushToTalkKeybind.Value = false;
+            }
+        });
     }
 }

@@ -43,6 +43,8 @@ public class MainWindow : Window, IMainWindow, IDisposable
     public IReactiveProperty<bool> PlayingBackMicAudio { get; } = new ReactiveProperty<bool>();
     public IReactiveProperty<bool> PushToTalk { get; } = new ReactiveProperty<bool>();
     public IReactiveProperty<bool> EditingPushToTalkKeybind { get; } = new ReactiveProperty<bool>();
+    private readonly Subject<Unit> clearPushToTalkKeybind = new();
+    public IObservable<Unit> ClearPushToTalkKeybind => clearPushToTalkKeybind.AsObservable();
     public IReactiveProperty<bool> SuppressNoise { get; } = new ReactiveProperty<bool>();
 
     public IObservable<bool> MuteMic => muteMic.AsObservable();
@@ -254,7 +256,6 @@ public class MainWindow : Window, IMainWindow, IDisposable
                 this.PlayingBackMicAudio.Value = !this.PlayingBackMicAudio.Value;
             }
 
-            ImGui.BeginDisabled();
             var pushToTalk = this.PushToTalk.Value;
             if (ImGui.Checkbox("Push to Talk", ref pushToTalk))
             {
@@ -265,10 +266,14 @@ public class MainWindow : Window, IMainWindow, IDisposable
                 ImGui.SameLine();
                 if (ImGui.Button(this.EditingPushToTalkKeybind.Value ? 
                         "Recording..." :
-                        this.configuration.PushToTalkKeybind.ToString(),
+                        KeyCodeStrings.TranslateKeyCode(this.configuration.PushToTalkKeybind),
                     new Vector2(5 * ImGui.GetFontSize(), 0)))
                 {
                     this.EditingPushToTalkKeybind.Value = !this.EditingPushToTalkKeybind.Value;
+                }
+                if (ImGui.IsItemHovered() && ImGui.IsMouseReleased(ImGuiMouseButton.Right))
+                {
+                    this.clearPushToTalkKeybind.OnNext(Unit.Default);
                 }
                 ImGui.SameLine();
                 ImGui.Text("Keybind");
@@ -277,8 +282,6 @@ public class MainWindow : Window, IMainWindow, IDisposable
             {
                 this.EditingPushToTalkKeybind.Value = false;
             }
-            ImGui.EndDisabled();
-            ImGui.SameLine(); HelpMarker("Coming soon");
 
             var suppressNoise = this.SuppressNoise.Value;
             if (ImGui.Checkbox("Suppress Noise", ref suppressNoise))
@@ -477,21 +480,21 @@ public class MainWindow : Window, IMainWindow, IDisposable
                 if (this.voiceRoomManager.WebRTCManager != null &&
                     this.voiceRoomManager.WebRTCManager.Peers.TryGetValue(playerName, out peer))
                 {
-                    DataChannel? dataChannel = null;
-                    if (peer.PeerConnection.DataChannels.Count > 0)
+                    if (peer.IceConnectionState != IceConnectionState.Closed)
                     {
-                        dataChannel = peer.PeerConnection.DataChannels[0];
-                    }
+                        DataChannel? dataChannel = null;
+                        if (peer.PeerConnection.DataChannels.Count > 0)
+                        {
+                            dataChannel = peer.PeerConnection.DataChannels[0];
+                        }
 
-                    if (dataChannel != null)
-                    {
-                        if (dataChannel.State == DataChannel.ChannelState.Open)
+                        if (dataChannel != null && dataChannel.State == DataChannel.ChannelState.Open)
                         {
                             color = Vector4Colors.Green;
                             tooltip = "Connected";
                             connected = true;
                         }
-                        else if (dataChannel.State == DataChannel.ChannelState.Connecting)
+                        else if (dataChannel == null || dataChannel.State == DataChannel.ChannelState.Connecting)
                         {
                             color = Vector4Colors.Orange;
                             tooltip = "Connecting";

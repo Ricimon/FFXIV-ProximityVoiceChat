@@ -258,6 +258,7 @@ public class WebRTCManager : IDisposable
         peerConnection.IceStateChanged += (IceConnectionState newState) =>
         {
             this.logger.Debug("ICE state: {0}", newState);
+            peer.IceConnectionState = newState;
             if (newState == IceConnectionState.Closed && peerConnection.DataChannels.Count > 0)
             {
                 peerConnection.RemoveDataChannel(peerConnection.DataChannels[0]);

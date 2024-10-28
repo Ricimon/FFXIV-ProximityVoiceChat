@@ -18,6 +18,7 @@ public interface IMainWindow : IPluginUIView
     public IReactiveProperty<bool> PlayingBackMicAudio { get; }
     public IReactiveProperty<bool> PushToTalk { get; }
     public IReactiveProperty<bool> EditingPushToTalkKeybind { get; }
+    public IObservable<Unit> ClearPushToTalkKeybind { get; }
     public IReactiveProperty<bool> SuppressNoise { get; }
 
     public IObservable<bool> MuteMic { get; }

@@ -14,6 +14,7 @@ public class Peer
     public bool IgnoreOffer;
     public bool IsSettingRemoteAnswerPending;
     public bool CanTrickleIceCandidates;
+    public IceConnectionState IceConnectionState;
 
     [Flags]
     public enum AudioStateFlags : ushort

@@ -20,6 +20,7 @@ namespace ProximityVoiceChat
         public int SelectedAudioOutputDeviceIndex { get; set; } = -1;
         public bool PushToTalk { get; set; }
         public KeyCode PushToTalkKeybind { get; set; }
+        public int PushToTalkReleaseDelayMs { get; set; } = 20;
         public bool SuppressNoise { get; set; } = true;
 
         public bool MuteMic { get; set; }

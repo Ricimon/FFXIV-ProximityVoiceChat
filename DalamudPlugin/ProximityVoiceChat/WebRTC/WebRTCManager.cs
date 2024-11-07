@@ -44,10 +44,6 @@ public class WebRTCManager : IDisposable
         {
             IceServers =
             [
-                 new() 
-                 {
-                     Urls = { options.StunServerUrl },
-                 },
                  new()
                  {
                      Urls = { options.TurnServerUrl },

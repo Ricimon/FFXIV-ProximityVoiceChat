@@ -85,7 +85,6 @@ public class VoiceRoomManager : IDisposable
     private readonly LoadConfig loadConfig;
     private readonly string signalingServerUrl = "http://ffxiv.ricimon.com";
     //private readonly string signalingServerUrl = "http://192.168.1.101:3030";
-    private readonly string stunServerUrl = "stun:ffxiv.ricimon.com:3478";
     private readonly string turnServerUrl = "turn:ffxiv.ricimon.com:3478";
     private readonly PeriodicTimer volumeUpdateTimer = new(TimeSpan.FromMilliseconds(100));
     private readonly SemaphoreSlim frameworkThreadSemaphore = new(1, 1);
@@ -182,7 +181,6 @@ public class VoiceRoomManager : IDisposable
         {
             EnableDataChannel = true,
             DataChannelHandlerFactory = this.dataChannelHandlerFactory,
-            StunServerUrl = this.loadConfig.stunServerOverride ?? this.stunServerUrl,
             TurnServerUrl = this.loadConfig.turnServerOverride ?? this.turnServerUrl,
             TurnUsername = this.loadConfig.turnUsername,
             TurnPassword = this.loadConfig.turnPassword,

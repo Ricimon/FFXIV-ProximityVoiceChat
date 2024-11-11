@@ -6,6 +6,7 @@ using Dalamud.Plugin.Services;
 using Microsoft.MixedReality.WebRTC;
 using NAudio.Wave;
 using ProximityVoiceChat.Extensions;
+using ProximityVoiceChat.Input;
 using ProximityVoiceChat.Log;
 using ProximityVoiceChat.WebRTC;
 using System;
@@ -79,7 +80,7 @@ public class VoiceRoomManager : IDisposable
     private readonly IObjectTable objectTable;
     private readonly Configuration configuration;
     private readonly WebRTCDataChannelHandler.IFactory dataChannelHandlerFactory;
-    private readonly AudioDeviceController audioDeviceController;
+    private readonly IAudioDeviceController audioDeviceController;
     private readonly ILogger logger;
 
     private readonly LoadConfig loadConfig;
@@ -95,7 +96,7 @@ public class VoiceRoomManager : IDisposable
         IObjectTable objectTable,
         Configuration configuration,
         WebRTCDataChannelHandler.IFactory dataChannelHandlerFactory,
-        AudioDeviceController audioDeviceController,
+        IAudioDeviceController audioDeviceController,
         ILogger logger)
     {
         this.pluginInterface = pluginInterface;

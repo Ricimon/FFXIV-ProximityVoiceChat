@@ -15,7 +15,7 @@ using Dalamud.Plugin.Services;
 using Dalamud.Plugin;
 using System.IO;
 using ProximityVoiceChat.WebRTC;
-using System.Windows.Input;
+using ProximityVoiceChat.Input;
 
 namespace ProximityVoiceChat.UI.View;
 
@@ -69,7 +69,8 @@ public class MainWindow : Window, IMainWindow, IDisposable
     private readonly WindowSystem windowSystem;
     private readonly IDalamudPluginInterface pluginInterface;
     private readonly ITextureProvider textureProvider;
-    private readonly AudioDeviceController audioDeviceController;
+    private readonly PushToTalkController pushToTalkController;
+    private readonly IAudioDeviceController audioDeviceController;
     private readonly VoiceRoomManager voiceRoomManager;
     private readonly Configuration configuration;
     private readonly string[] falloffTypes;
@@ -78,7 +79,7 @@ public class MainWindow : Window, IMainWindow, IDisposable
         WindowSystem windowSystem,
         IDalamudPluginInterface pluginInterface,
         ITextureProvider textureProvider,
-        AudioDeviceController audioDeviceController,
+        PushToTalkController pushToTalkController,
         VoiceRoomManager voiceRoomManager,
         Configuration configuration) : base(
         PluginInitializer.Name)
@@ -86,7 +87,8 @@ public class MainWindow : Window, IMainWindow, IDisposable
         this.windowSystem = windowSystem ?? throw new ArgumentNullException(nameof(windowSystem));
         this.pluginInterface = pluginInterface ?? throw new ArgumentNullException(nameof(pluginInterface));
         this.textureProvider = textureProvider ?? throw new ArgumentNullException(nameof(textureProvider));
-        this.audioDeviceController = audioDeviceController ?? throw new ArgumentNullException(nameof(audioDeviceController));
+        this.pushToTalkController = pushToTalkController ?? throw new ArgumentNullException(nameof(pushToTalkController));
+        this.audioDeviceController = pushToTalkController;
         this.voiceRoomManager = voiceRoomManager ?? throw new ArgumentNullException(nameof(voiceRoomManager));
         this.configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         this.falloffTypes = Enum.GetNames(typeof(AudioFalloffModel.FalloffType));
@@ -513,7 +515,9 @@ public class MainWindow : Window, IMainWindow, IDisposable
             {
                 if (connected &&
                     !this.audioDeviceController.PlayingBackMicAudio &&
-                    this.audioDeviceController.RecordingDataHasActivity)
+                    (this.configuration.PushToTalk ?
+                        this.pushToTalkController.PushToTalkKeyDown :
+                        this.audioDeviceController.RecordingDataHasActivity))
                 {
                     drawList.AddCircleFilled(pos, radius, ImGui.ColorConvertFloat4ToU32(color));
                 }

@@ -6,8 +6,8 @@ using System.Reactive.Linq;
 using ProximityVoiceChat.Log;
 using ProximityVoiceChat.UI.View;
 using ProximityVoiceChat.Extensions;
-using WindowsInput.Events.Sources;
 using WindowsInput.Events;
+using ProximityVoiceChat.Input;
 
 namespace ProximityVoiceChat.UI.Presenter;
 
@@ -16,7 +16,7 @@ public class MainWindowPresenter(
     Configuration configuration,
     IClientState clientState,
     IFramework framework,
-    AudioDeviceController audioInputController,
+    PushToTalkController pushToTalkController,
     VoiceRoomManager voiceRoomManager,
     InputEventSource inputEventSource,
     ILogger logger) : IPluginUIPresenter, IDisposable
@@ -27,7 +27,8 @@ public class MainWindowPresenter(
     private readonly Configuration configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
     private readonly IClientState clientState = clientState ?? throw new ArgumentNullException(nameof(clientState));
     private readonly IFramework framework = framework ?? throw new ArgumentNullException(nameof(framework));
-    private readonly AudioDeviceController audioDeviceController = audioInputController ?? throw new ArgumentNullException(nameof(audioInputController));
+    private readonly PushToTalkController pushToTalkController = pushToTalkController ?? throw new ArgumentNullException(nameof(pushToTalkController));
+    private readonly IAudioDeviceController audioDeviceController = pushToTalkController;
     private readonly VoiceRoomManager voiceRoomManager = voiceRoomManager ?? throw new ArgumentNullException(nameof(voiceRoomManager));
     private readonly InputEventSource inputEventSource = inputEventSource ?? throw new ArgumentNullException(nameof(inputEventSource));
     private readonly ILogger logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -60,7 +61,13 @@ public class MainWindowPresenter(
             },
             this.audioDeviceController.PlayingBackMicAudio);
         Bind(this.view.PushToTalk,
-            b => { this.configuration.PushToTalk = b; this.configuration.Save(); }, this.configuration.PushToTalk);
+            b => 
+            {
+                this.configuration.PushToTalk = b;
+                this.configuration.Save();
+                this.pushToTalkController.UpdateListeners();
+            },
+            this.configuration.PushToTalk);
         Bind(this.view.SuppressNoise,
             b => { this.configuration.SuppressNoise = b; this.configuration.Save(); }, this.configuration.SuppressNoise);
 

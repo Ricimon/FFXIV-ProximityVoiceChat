@@ -1,18 +1,22 @@
 ﻿using Microsoft.MixedReality.WebRTC;
+using ProximityVoiceChat.Input;
 using ProximityVoiceChat.Log;
 using System;
 using System.Collections.Generic;
 
 namespace ProximityVoiceChat.WebRTC
 {
-    public class WebRTCDataChannelHandler(AudioDeviceController audioDeviceController, VoiceRoomManager voiceRoomManager, ILogger logger) : IDisposable
+    public class WebRTCDataChannelHandler(
+        IAudioDeviceController audioDeviceController,
+        VoiceRoomManager voiceRoomManager,
+        ILogger logger) : IDisposable
     {
         private string? peerId;
         private PeerConnection? peerConnection;
 
         private readonly Dictionary<string, Action> stateChangedSubscriptions = [];
 
-        private readonly AudioDeviceController audioDeviceController = audioDeviceController;
+        private readonly IAudioDeviceController audioDeviceController = audioDeviceController;
         private readonly VoiceRoomManager voiceRoomManager = voiceRoomManager;
         private readonly ILogger logger = logger;
 

@@ -8,9 +8,9 @@ using ProximityVoiceChat.Log;
 using RNNoise.NET;
 using WebRtcVadSharp;
 
-namespace ProximityVoiceChat;
+namespace ProximityVoiceChat.Input;
 
-public class AudioDeviceController : IDisposable
+public class AudioDeviceController : IAudioDeviceController, IDisposable
 {
     public bool IsAudioRecordingSourceActive => PlayingBackMicAudio || (!MuteMic && !Deafen && AudioRecordingIsRequested);
     public bool IsAudioPlaybackSourceActive => PlayingBackMicAudio || (!Deafen && AudioPlaybackIsRequested);
@@ -114,7 +114,7 @@ public class AudioDeviceController : IDisposable
     private int audioPlaybackDeviceIndex;
 
     public event EventHandler<WaveInEventArgs>? OnAudioRecordingSourceDataAvailable;
-    public bool RecordingDataHasActivity => lastAudioRecordingSourceData != null &&
+    public bool RecordingDataHasActivity => this.lastAudioRecordingSourceData != null &&
         (this.configuration.SuppressNoise ?
             this.voiceActivityDetector.HasSpeech(this.lastAudioRecordingSourceData.Buffer) :
             this.lastAudioRecordingSourceData.Buffer.Any(b => b != default));
@@ -278,7 +278,7 @@ public class AudioDeviceController : IDisposable
         {
             volume = 0.0f;
         }
-        foreach(var channel in this.playbackChannels)
+        foreach (var channel in this.playbackChannels)
         {
             channel.Value.VolumeSampleProvider.Volume = volume;
         }
@@ -407,7 +407,7 @@ public class AudioDeviceController : IDisposable
     {
         if (clearAll || this.PlayingBackMicAudio)
         {
-            foreach(var channel in this.playbackChannels.Values)
+            foreach (var channel in this.playbackChannels.Values)
             {
                 channel.BufferedWaveProvider.ClearBuffer();
             }

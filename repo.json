@@ -10,7 +10,7 @@
         "RepoUrl": "https://github.com/Ricimon/FFXIV-ProximityVoiceChat",
         "IconUrl": "https://raw.githubusercontent.com/Ricimon/FFXIV-ProximityVoiceChat/master/images/icon.png",
         "ApplicableVersion": "any",
-        "DalamudApiLevel": 10,
+        "DalamudApiLevel": 11,
         "IsHide": "False",
         "IsTestingExclusive": "False",
         "LastUpdate": 0,

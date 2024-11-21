@@ -8,10 +8,10 @@ public static class DalamudExtensions
     public static string? GetPlayerFullName(this IPlayerCharacter playerCharacter)
     {
         string playerName = playerCharacter.Name.TextValue;
-        var homeWorld = playerCharacter.HomeWorld.GameData;
-        if (homeWorld != null)
+        var homeWorld = playerCharacter.HomeWorld;
+        if (homeWorld.IsValid)
         {
-            playerName += $"@{homeWorld.Name.RawString}";
+            playerName += $"@{homeWorld.Value.Name.ExtractText()}";
         }
 
         return playerName;

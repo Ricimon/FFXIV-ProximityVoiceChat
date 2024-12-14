@@ -79,6 +79,7 @@ public class VoiceRoomManager : IDisposable
     private readonly IFramework framework;
     private readonly IObjectTable objectTable;
     private readonly Configuration configuration;
+    private readonly MapChangeHandler mapChangeHandler;
     private readonly WebRTCDataChannelHandler.IFactory dataChannelHandlerFactory;
     private readonly IAudioDeviceController audioDeviceController;
     private readonly ILogger logger;
@@ -95,6 +96,7 @@ public class VoiceRoomManager : IDisposable
         IFramework framework,
         IObjectTable objectTable,
         Configuration configuration,
+        MapChangeHandler mapChangeHandler,
         WebRTCDataChannelHandler.IFactory dataChannelHandlerFactory,
         IAudioDeviceController audioDeviceController,
         ILogger logger)
@@ -104,6 +106,7 @@ public class VoiceRoomManager : IDisposable
         this.framework = framework;
         this.objectTable = objectTable;
         this.configuration = configuration;
+        this.mapChangeHandler = mapChangeHandler;
         this.dataChannelHandlerFactory = dataChannelHandlerFactory;
         this.audioDeviceController = audioDeviceController;
         this.logger = logger;

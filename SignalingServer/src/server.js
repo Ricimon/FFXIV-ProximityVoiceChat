@@ -5,6 +5,7 @@ import { Server } from "socket.io";
 import cors from "cors";
 import sirv from "sirv";
 import { JSONFilePreset } from 'lowdb/node';
+import { state } from './state.js';
 
 // ENVIRONMENT VARIABLES
 const PORT = process.env.PORT || 3030;
@@ -21,8 +22,8 @@ const io = new Server(server, { cors: {} });
 const defaultData = { roomProperties: {} };
 const db = await JSONFilePreset('db.json', defaultData);
 const { roomProperties } = db.data;
-const rooms = { "public": {} };
-const connections = {};
+const rooms = state.rooms;
+const connections = state.connections;
 
 // AUTHENTICATION MIDDLEWARE
 io.use((socket, next) => {
@@ -42,11 +43,24 @@ app.get("/rooms", (req, res) => {
   res.json(rooms);
 });
 
+// UTILITY FUNCTIONS
+function isEmpty(obj) {
+  for (const prop in obj) {
+    if (Object.hasOwn(obj, prop)) {
+      return false;
+    }
+  }
+  return true;
+}
+function getSocketRoomName(roomName, instance) {
+  return `${roomName}-${instance}`;
+}
+
 // MESSAGING LOGIC
 io.on("connection", (socket) => {
   console.log("User connected with id", socket.id);
 
-  socket.on("ready", async (peerId, peerType, roomName, roomPassword) => {
+  socket.on("ready", async (peerId, peerType, roomName, roomPassword, playersInInstance) => {
     // Make sure that the hostname is unique, if the hostname is already in connections, send an error and disconnect
     if (peerId in connections) {
       socket.emit("serverDisconnect", {
@@ -55,13 +69,35 @@ io.on("connection", (socket) => {
       socket.disconnect(true);
       return;
     }
-    if (roomName) {
+
+    // Check room name
+    if (!roomName) {
+      // for debugging
+      if (peerType === "admin") {
+        roomName = "public";
+      }
+      else {
+        socket.emit("serverDisconnect", {
+          message: "Room name not given, cannot connect.",
+        });
+        socket.disconnect(true);
+        return;
+      }
+    }
+
+    let instanceNumber = 0;
+
+    if (roomName.startsWith("public")) {
+      // Public room
+    }
+    else {
       // Private room
       if (peerId === roomName) {
         // Room owner sets room password
         roomProperties[roomName] = { password: roomPassword };
         await db.update(({ roomProperties }) => roomProperties[roomName] = { password: roomPassword });
       } else {
+        // Check that we can connect to an existing private room
         if (!(roomName in roomProperties)) {
           socket.emit("serverDisconnect", {
             message: `Cannot connect to room ${roomName}, room does not exist.`,
@@ -77,35 +113,43 @@ io.on("connection", (socket) => {
           return;
         }
       }
-    } else {
-      roomName = "public";
     }
-    socket.join(roomName);
-    socket.room = roomName;
-    // Add new room if needed
-    if (!(roomName in rooms)) {
-      rooms[roomName] = {};
+
+    let socketRoomName = getSocketRoomName(roomName, instanceNumber);
+
+    // Join socket room
+    socket.join(socketRoomName);
+    socket.room = socketRoomName;
+    console.log(`Added ${peerId} to connections, in room ${socketRoomName}`);
+
+    // Get (or create) room and instance
+    let room = rooms[roomName] || (rooms[roomName] = {});
+    let instance = room[instanceNumber] || (room[instanceNumber] = {});
+
+    // Let new peer know about all existing peers in its instance
+    if (!isEmpty(instance)) {
+      socket.send({
+        from: "all",
+        target: peerId,
+        payload: { action: "open", connections: Object.values(instance), bePolite: false } // The new peer doesn't need to be polite.
+      });
     }
-    console.log(`Added ${peerId} to connections, in room ${roomName}`);
-    // Let new peer know about all existing peers in its room
-    socket.send({
-      from: "all",
-      target: peerId,
-      payload: { action: "open", connections: Object.values(rooms[roomName]), bePolite: false } // The new peer doesn't need to be polite.
-    });
+
     // Create new peer
     const newPeer = { 
       socketId: socket.id,
       peerId,
       peerType,
-      roomName
+      roomName,
+      instanceNumber,
     };
     // Updates connections object
     connections[peerId] = newPeer;
-    // Update room object
-    rooms[roomName][peerId] = newPeer;
+    // Update instance object
+    instance[peerId] = newPeer;
+
     // Let all other peers know about new peer
-    socket.to(roomName).emit("message", {
+    socket.to(socket.room).emit("message", {
       from: peerId,
       target: "all",
       payload: { action: "open", connections: [newPeer], bePolite: true }, // send connections object with an array containing the only new peer and make all existing peers polite.
@@ -148,11 +192,17 @@ io.on("connection", (socket) => {
       });
       // remove disconnecting peer from connections
       delete connections[disconnectingPeer.peerId];
-      // remove disconnecting peer from rooms
-      delete rooms[socket.room][disconnectingPeer.peerId];
+      // remove disconnecting peer from instance
+      let room = rooms[disconnectingPeer.roomName];
+      let instance = room[disconnectingPeer.instanceNumber];
+      delete instance[disconnectingPeer.peerId];
+      // remove instance if empty
+      if (isEmpty(instance)) {
+        delete room[disconnectingPeer.instanceNumber];
+      }
       // remove room if empty
-      if (socket.room !== "public" && !Object.keys(rooms[socket.room]).length) {
-        delete rooms[socket.room];
+      if (isEmpty(room)) {
+        delete rooms[disconnectingPeer.roomName];
       }
     } else {
       console.log(socket.id, "has disconnected");

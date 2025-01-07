@@ -24,6 +24,7 @@ public class SignalingChannel : IDisposable
     public event Action? OnReady;
     public event Action<SocketIOResponse>? OnMessage;
     public event Action? OnDisconnected;
+    public event Action? OnErrored;
 
     private CancellationTokenSource? disconnectCts;
     private string? roomPassword;
@@ -205,6 +206,7 @@ public class SignalingChannel : IDisposable
         this.disconnectCts?.Cancel();
         this.disconnectCts?.Dispose();
         this.disconnectCts = null;
+        this.OnErrored?.Invoke();
         // There's a known exception here when attempting to connect again, due to the strange way
         // the Socket.IO for .NET library internally handles Task state transitions.
     }

@@ -28,6 +28,12 @@ public class VoiceRoomManager : IDisposable
         public float Volume { get; set; } = 1.0f;
     }
 
+    /// <summary>
+    /// When in a public room, this plugin will automatically switch voice rooms when the player changes maps.
+    /// This property indicates if the player should be connected to a public voice room.
+    /// </summary>
+    public bool ShouldBeInRoom { get; private set; }
+
     public bool InRoom { get; private set; }
 
     public bool InPublicRoom
@@ -37,7 +43,7 @@ public class VoiceRoomManager : IDisposable
 #if DEBUG
             return false;
 #else
-            return InRoom && string.IsNullOrEmpty(this.SignalingChannel?.RoomName);
+            return InRoom && (this.SignalingChannel?.RoomName.StartsWith("public") ?? false);
 #endif
         }
     }
@@ -151,70 +157,45 @@ public class VoiceRoomManager : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    /// <summary>
-    /// Use empty string roomName to join public room
-    /// </summary>
-    public void JoinVoiceRoom(string roomName, string roomPassword)
+    public void JoinPublicVoiceRoom()
     {
-        if (this.InRoom)
+        if (this.ShouldBeInRoom)
         {
-            this.logger.Error("Already in voice room, ignoring join request.");
+            this.logger.Error("Already should be in voice room, ignoring public room join request.");
             return;
         }
-
-        this.logger.Debug("Attempting to join voice room.");
-
-        var playerName = this.clientState.GetLocalPlayerFullName();
-        if (playerName == null)
-        {
-            this.logger.Error("Player name is null, cannot join voice room.");
-            return;
-        }
-
-        InRoom = true;
-        this.localPlayerFullName = playerName;
-
-        this.logger.Trace("Creating SignalingChannel class with peerId {0}", playerName);
-        this.SignalingChannel ??= new SignalingChannel(playerName,
-            PeerType,
-            this.loadConfig.signalingServerOverride ?? this.signalingServerUrl,
-            this.loadConfig.signalingServerToken ?? string.Empty,
-            this.logger,
-            true);
-        var options = new WebRTCOptions()
-        {
-            EnableDataChannel = true,
-            DataChannelHandlerFactory = this.dataChannelHandlerFactory,
-            TurnServerUrl = this.loadConfig.turnServerOverride ?? this.turnServerUrl,
-            TurnUsername = this.loadConfig.turnUsername,
-            TurnPassword = this.loadConfig.turnPassword,
-        };
-        this.WebRTCManager ??= new WebRTCManager(playerName, PeerType, this.SignalingChannel, options, this.logger, true);
-
-        this.SignalingChannel.OnConnected += OnSignalingServerConnected;
-        this.SignalingChannel.OnReady += OnSignalingServerReady;
-        this.SignalingChannel.OnDisconnected += OnSignalingServerDisconnected;
-
-        this.logger.Debug("Attempting to connect to signaling channel.");
-        this.SignalingChannel.ConnectAsync(roomName, roomPassword).SafeFireAndForget(ex =>
-        {
-            if (ex is not OperationCanceledException)
-            {
-                this.logger.Error(ex.ToString());
-            }
-        });
+        string roomName = this.mapChangeHandler.GetCurrentMapPublicRoomName();
+        this.logger.Debug("Attempting to join public room {0}", roomName);
+        JoinVoiceRoom(roomName, string.Empty);
+        this.mapChangeHandler.OnMapChanged += ReconnectToCurrentMapPublicRoom;
     }
 
-    public void LeaveVoiceRoom()
+    public void JoinPrivateVoiceRoom(string roomName, string roomPassword)
     {
+        if (this.ShouldBeInRoom)
+        {
+            this.logger.Error("Already should be in voice room, ignoring private room join request.");
+            return;
+        }
+        JoinVoiceRoom(roomName, roomPassword);
+    }
+
+    public Task LeaveVoiceRoom(bool autoRejoin)
+    {
+        if (!autoRejoin)
+        {
+            this.ShouldBeInRoom = false;
+            this.mapChangeHandler.OnMapChanged -= ReconnectToCurrentMapPublicRoom;
+        }
+
         if (!this.InRoom)
         {
-            return;
+            return Task.CompletedTask;
         }
 
         this.logger.Debug("Attempting to leave voice room.");
 
-        InRoom = false;
+        this.InRoom = false;
         this.localPlayerFullName = null;
 
         this.audioDeviceController.AudioRecordingIsRequested = false;
@@ -226,7 +207,12 @@ public class VoiceRoomManager : IDisposable
             this.SignalingChannel.OnConnected -= OnSignalingServerConnected;
             this.SignalingChannel.OnReady -= OnSignalingServerReady;
             this.SignalingChannel.OnDisconnected -= OnSignalingServerDisconnected;
-            this.SignalingChannel?.DisconnectAsync().SafeFireAndForget(ex => this.logger.Error(ex.ToString()));
+            this.SignalingChannel.OnErrored -= OnSignalingServerDisconnected;
+            return this.SignalingChannel.DisconnectAsync();
+        }
+        else
+        {
+            return Task.CompletedTask;
         }
     }
 
@@ -365,6 +351,72 @@ public class VoiceRoomManager : IDisposable
         return (float)volume;
     }
 
+    private void JoinVoiceRoom(string roomName, string roomPassword)
+    {
+        if (this.InRoom)
+        {
+            this.logger.Error("Already in voice room, ignoring join request.");
+            return;
+        }
+
+        this.logger.Debug("Attempting to join voice room.");
+
+        var playerName = this.clientState.GetLocalPlayerFullName();
+        if (playerName == null)
+        {
+            this.logger.Error("Player name is null, cannot join voice room.");
+            return;
+        }
+
+        this.InRoom = true;
+        this.ShouldBeInRoom = true;
+        this.localPlayerFullName = playerName;
+
+        this.logger.Trace("Creating SignalingChannel class with peerId {0}", playerName);
+        this.SignalingChannel ??= new SignalingChannel(playerName,
+            PeerType,
+            this.loadConfig.signalingServerOverride ?? this.signalingServerUrl,
+            this.loadConfig.signalingServerToken ?? string.Empty,
+            this.logger,
+            true);
+        var options = new WebRTCOptions()
+        {
+            EnableDataChannel = true,
+            DataChannelHandlerFactory = this.dataChannelHandlerFactory,
+            TurnServerUrl = this.loadConfig.turnServerOverride ?? this.turnServerUrl,
+            TurnUsername = this.loadConfig.turnUsername,
+            TurnPassword = this.loadConfig.turnPassword,
+        };
+        this.WebRTCManager ??= new WebRTCManager(playerName, PeerType, this.SignalingChannel, options, this.logger, true);
+
+        this.SignalingChannel.OnConnected += OnSignalingServerConnected;
+        this.SignalingChannel.OnReady += OnSignalingServerReady;
+        this.SignalingChannel.OnDisconnected += OnSignalingServerDisconnected;
+        this.SignalingChannel.OnErrored += OnSignalingServerErrored;
+
+        this.logger.Debug("Attempting to connect to signaling channel.");
+        this.SignalingChannel.ConnectAsync(roomName, roomPassword).SafeFireAndForget(ex =>
+        {
+            if (ex is not OperationCanceledException)
+            {
+                this.logger.Error(ex.ToString());
+            }
+        });
+    }
+
+    private void ReconnectToCurrentMapPublicRoom(string publicRoomName)
+    {
+        if (this.ShouldBeInRoom &&
+            (!this.InRoom || this.SignalingChannel?.RoomName != publicRoomName))
+        {
+            Task.Run(async () =>
+            {
+                await this.LeaveVoiceRoom(true);
+                this.JoinVoiceRoom(publicRoomName, string.Empty);
+            });
+        }
+    }
+
     private void OnSignalingServerConnected()
     {
         this.audioDeviceController.AudioRecordingIsRequested = true;
@@ -379,7 +431,14 @@ public class VoiceRoomManager : IDisposable
 
     private void OnSignalingServerDisconnected()
     {
-        LeaveVoiceRoom();
+        LeaveVoiceRoom(false).SafeFireAndForget(ex => this.logger.Error(ex.ToString()));
+    }
+
+    private void OnSignalingServerErrored()
+    {
+        LeaveVoiceRoom(false).SafeFireAndForget(ex => this.logger.Error(ex.ToString()));
+        this.SignalingChannel?.Dispose();
+        this.SignalingChannel = null;
     }
 
     private void SendAudioSampleToAllPeers(object? sender, WaveInEventArgs e)

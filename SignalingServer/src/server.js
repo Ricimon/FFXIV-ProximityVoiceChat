@@ -89,6 +89,7 @@ io.on("connection", (socket) => {
 
     if (roomName.startsWith("public")) {
       // Public room
+      instanceNumber = 1;
     }
     else {
       // Private room

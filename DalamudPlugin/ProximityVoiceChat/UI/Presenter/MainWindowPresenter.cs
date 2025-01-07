@@ -8,6 +8,7 @@ using ProximityVoiceChat.UI.View;
 using ProximityVoiceChat.Extensions;
 using WindowsInput.Events;
 using ProximityVoiceChat.Input;
+using AsyncAwaitBestPractices;
 
 namespace ProximityVoiceChat.UI.Presenter;
 
@@ -114,30 +115,27 @@ public class MainWindowPresenter(
 
         this.view.JoinVoiceRoom.Subscribe(_ =>
         {
-            var playerName = this.clientState.GetLocalPlayerFullName();
-            if (playerName == null)
-            {
-                this.logger.Error("Player name is null, cannot join voice room.");
-                return;
-            }
-
-            string roomName;
             if (this.view.PublicRoom.Value)
             {
-                roomName = string.Empty;
+                this.voiceRoomManager.JoinPublicVoiceRoom();
             }
             else
             {
                 if (string.IsNullOrEmpty(this.view.RoomName.Value))
                 {
+                    var playerName = this.clientState.GetLocalPlayerFullName();
+                    if (playerName == null)
+                    {
+                        this.logger.Error("Player name is null, cannot autofill private room name.");
+                        return;
+                    }
                     this.view.RoomName.Value = playerName;
                 }
-                roomName = this.view.RoomName.Value;
+                this.voiceRoomManager.JoinPrivateVoiceRoom(this.view.RoomName.Value, this.view.RoomPassword.Value);
             }
-            this.voiceRoomManager.JoinVoiceRoom(roomName, this.view.RoomPassword.Value);
         });
 
-        this.view.LeaveVoiceRoom.Subscribe(_ => this.voiceRoomManager.LeaveVoiceRoom());
+        this.view.LeaveVoiceRoom.Subscribe(_ => this.voiceRoomManager.LeaveVoiceRoom(false).SafeFireAndForget(ex => this.logger.Error(ex.ToString())));
 
         this.view.EditingPushToTalkKeybind.Subscribe(b =>
         {

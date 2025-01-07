@@ -72,6 +72,7 @@ public class MainWindow : Window, IMainWindow, IDisposable
     private readonly PushToTalkController pushToTalkController;
     private readonly IAudioDeviceController audioDeviceController;
     private readonly VoiceRoomManager voiceRoomManager;
+    private readonly MapChangeHandler mapChangeHandler;
     private readonly Configuration configuration;
     private readonly string[] falloffTypes;
 
@@ -81,6 +82,7 @@ public class MainWindow : Window, IMainWindow, IDisposable
         ITextureProvider textureProvider,
         PushToTalkController pushToTalkController,
         VoiceRoomManager voiceRoomManager,
+        MapChangeHandler mapChangeHandler,
         Configuration configuration) : base(
         PluginInitializer.Name)
     {
@@ -90,6 +92,7 @@ public class MainWindow : Window, IMainWindow, IDisposable
         this.pushToTalkController = pushToTalkController ?? throw new ArgumentNullException(nameof(pushToTalkController));
         this.audioDeviceController = pushToTalkController;
         this.voiceRoomManager = voiceRoomManager ?? throw new ArgumentNullException(nameof(voiceRoomManager));
+        this.mapChangeHandler = mapChangeHandler ?? throw new ArgumentNullException(nameof(mapChangeHandler));
         this.configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         this.falloffTypes = Enum.GetNames(typeof(AudioFalloffModel.FalloffType));
         windowSystem.AddWindow(this);
@@ -146,12 +149,16 @@ public class MainWindow : Window, IMainWindow, IDisposable
         //ImGui.Indent(indent);
         if (this.PublicRoom.Value)
         {
-            if (this.voiceRoomManager.InRoom) { ImGui.BeginDisabled(); }
+            if (!this.voiceRoomManager.ShouldBeInRoom) { ImGui.BeginDisabled(); }
+            ImGui.Text(string.Format("Room ID: public{0}_{1}", this.mapChangeHandler.CurrentTerritoryId, this.mapChangeHandler.CurrentMapId));
+            if (!this.voiceRoomManager.ShouldBeInRoom) { ImGui.EndDisabled(); }
+
+            if (this.voiceRoomManager.ShouldBeInRoom) { ImGui.BeginDisabled(); }
             if (ImGui.Button("Join Public Voice Room"))
             {
                 this.joinVoiceRoom.OnNext(Unit.Default);
             }
-            if (this.voiceRoomManager.InRoom) { ImGui.EndDisabled(); }
+            if (this.voiceRoomManager.ShouldBeInRoom) { ImGui.EndDisabled(); }
         }
         else
         {
@@ -431,7 +438,7 @@ public class MainWindow : Window, IMainWindow, IDisposable
     {
         ImGui.AlignTextToFramePadding();
         var roomName = this.voiceRoomManager.SignalingChannel?.RoomName;
-        if (string.IsNullOrEmpty(roomName))
+        if (string.IsNullOrEmpty(roomName) || roomName.StartsWith("public"))
         {
             ImGui.Text("Public Voice Room");
         }
@@ -439,7 +446,7 @@ public class MainWindow : Window, IMainWindow, IDisposable
         {
             ImGui.Text($"{roomName}'s Voice Room");
         }
-        if (this.voiceRoomManager.InRoom)
+        if (this.voiceRoomManager.ShouldBeInRoom)
         {
             ImGui.SameLine();
             if (ImGui.Button("Leave"))

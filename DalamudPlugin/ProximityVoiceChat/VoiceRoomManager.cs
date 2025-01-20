@@ -166,7 +166,7 @@ public class VoiceRoomManager : IDisposable
         }
         string roomName = this.mapChangeHandler.GetCurrentMapPublicRoomName();
         this.logger.Debug("Attempting to join public room {0}", roomName);
-        JoinVoiceRoom(roomName, string.Empty);
+        JoinVoiceRoom(roomName, string.Empty, GetOtherPlayerNamesInInstance().ToArray());
         this.mapChangeHandler.OnMapChanged += ReconnectToCurrentMapPublicRoom;
     }
 
@@ -177,7 +177,7 @@ public class VoiceRoomManager : IDisposable
             this.logger.Error("Already should be in voice room, ignoring private room join request.");
             return;
         }
-        JoinVoiceRoom(roomName, roomPassword);
+        JoinVoiceRoom(roomName, roomPassword, null);
     }
 
     public Task LeaveVoiceRoom(bool autoRejoin)
@@ -244,6 +244,20 @@ public class VoiceRoomManager : IDisposable
         }).SafeFireAndForget(ex => this.logger.Error(ex.ToString()));
     }
 
+    private IEnumerable<IPlayerCharacter> GetPlayersInInstance()
+    {
+        return this.objectTable.Where(go => go.ObjectKind == ObjectKind.Player).OfType<IPlayerCharacter>();
+    }
+
+    private IEnumerable<string> GetOtherPlayerNamesInInstance()
+    {
+        return GetPlayersInInstance()
+            .Select(p => p.GetPlayerFullName())
+            .Where(s => s != null)
+            .Where(s => s != this.clientState.GetLocalPlayerFullName())
+            .Cast<string>();
+    }
+
     private void UpdatePlayerVolumes()
     {
         try
@@ -273,8 +287,7 @@ public class VoiceRoomManager : IDisposable
                 return;
             }
 
-            var players = this.objectTable.Where(go => go.ObjectKind == ObjectKind.Player).OfType<IPlayerCharacter>();
-            foreach (var player in players)
+            foreach (var player in GetPlayersInInstance())
             {
                 var playerName = player.GetPlayerFullName();
                 if (playerName != null &&
@@ -351,7 +364,7 @@ public class VoiceRoomManager : IDisposable
         return (float)volume;
     }
 
-    private void JoinVoiceRoom(string roomName, string roomPassword)
+    private void JoinVoiceRoom(string roomName, string roomPassword, string[]? playersInInstance)
     {
         if (this.InRoom)
         {
@@ -395,7 +408,7 @@ public class VoiceRoomManager : IDisposable
         this.SignalingChannel.OnErrored += OnSignalingServerErrored;
 
         this.logger.Debug("Attempting to connect to signaling channel.");
-        this.SignalingChannel.ConnectAsync(roomName, roomPassword).SafeFireAndForget(ex =>
+        this.SignalingChannel.ConnectAsync(roomName, roomPassword, playersInInstance).SafeFireAndForget(ex =>
         {
             if (ex is not OperationCanceledException)
             {
@@ -412,7 +425,14 @@ public class VoiceRoomManager : IDisposable
             Task.Run(async () =>
             {
                 await this.LeaveVoiceRoom(true);
-                this.JoinVoiceRoom(publicRoomName, string.Empty);
+                // Add an arbitrary delay here as loading a new map can result in a null local player name during load.
+                // This delay hopefully allows the game to populate that field before a reconnection attempt happens.
+                await Task.Delay(500);
+                // Accessing the object table must happen on the main thread
+                this.framework.Run(() =>
+                {
+                    this.JoinVoiceRoom(publicRoomName, string.Empty, GetOtherPlayerNamesInInstance().ToArray());
+                }).SafeFireAndForget(ex => this.logger.Error(ex.ToString()));
             });
         }
     }

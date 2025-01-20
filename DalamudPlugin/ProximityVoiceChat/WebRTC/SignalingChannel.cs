@@ -28,6 +28,7 @@ public class SignalingChannel : IDisposable
 
     private CancellationTokenSource? disconnectCts;
     private string? roomPassword;
+    private string[]? playersInInstance;
     private bool ready;
 
     private readonly SocketIOClient.SocketIO socket;
@@ -55,7 +56,7 @@ public class SignalingChannel : IDisposable
         this.AddListeners();
     }
 
-    public Task ConnectAsync(string roomName = "", string roomPassword = "")
+    public Task ConnectAsync(string roomName, string roomPassword, string[]? playersInInstance)
     {
         if (this.socket.Connected)
         {
@@ -68,6 +69,7 @@ public class SignalingChannel : IDisposable
         this.Disconnected = false;
         this.RoomName = roomName;
         this.roomPassword = roomPassword;
+        this.playersInInstance = playersInInstance;
         return this.socket.ConnectAsync(this.disconnectCts.Token);
     }
 
@@ -171,7 +173,7 @@ public class SignalingChannel : IDisposable
                 this.logger.Debug("Connected to signaling server.");
             }
             this.OnConnected?.Invoke();
-            this.socket.EmitAsync("ready", this.PeerId, this.PeerType, this.RoomName, this.roomPassword)
+            this.socket.EmitAsync("ready", this.PeerId, this.PeerType, this.RoomName, this.roomPassword, this.playersInInstance)
                 .SafeFireAndForget(ex => this.logger.Error(ex.ToString()));
         }
         catch (Exception ex)

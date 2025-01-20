@@ -89,7 +89,31 @@ io.on("connection", (socket) => {
 
     if (roomName.startsWith("public")) {
       // Public room
-      instanceNumber = 1;
+      console.log(`Public room join request for room ${roomName} received with players in instance: [${playersInInstance}]`);
+
+      // Try to find a player already in the map, which will correspond to the same instance for the connecting player
+      if (playersInInstance) {
+        for (const p in playersInInstance) {
+          if (p in connections && connections[p].roomName == roomName) {
+            const foundPeer = connections[p];
+            console.log(`Found player ${p} in existing room instance ${getSocketRoomName(foundPeer.roomName, foundPeer.instanceNumber)}`)
+            instanceNumber = connections[p].instanceNumber;
+            break;
+          }
+        }
+      }
+
+      // If no existing players found, create a new instance for the map
+      if (instanceNumber === 0) {
+        instanceNumber = 1;
+        const room = rooms[roomName];
+        if (room) {
+          while (instanceNumber in room) {
+            instanceNumber++;
+          }
+        }
+        //console.log(`No players found in existing room instances. Creating new instance with number ${instanceNumber}`);
+      }
     }
     else {
       // Private room

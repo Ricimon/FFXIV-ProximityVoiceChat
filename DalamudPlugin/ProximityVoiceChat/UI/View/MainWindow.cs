@@ -149,16 +149,16 @@ public class MainWindow : Window, IMainWindow, IDisposable
         //ImGui.Indent(indent);
         if (this.PublicRoom.Value)
         {
-            if (!this.voiceRoomManager.ShouldBeInRoom) { ImGui.BeginDisabled(); }
+            ImGui.BeginDisabled(!this.voiceRoomManager.ShouldBeInRoom);
             ImGui.Text(string.Format("Room ID: public{0}_{1}", this.mapChangeHandler.CurrentTerritoryId, this.mapChangeHandler.CurrentMapId));
-            if (!this.voiceRoomManager.ShouldBeInRoom) { ImGui.EndDisabled(); }
+            ImGui.EndDisabled();
 
-            if (this.voiceRoomManager.ShouldBeInRoom) { ImGui.BeginDisabled(); }
+            ImGui.BeginDisabled(this.voiceRoomManager.ShouldBeInRoom);
             if (ImGui.Button("Join Public Voice Room"))
             {
                 this.joinVoiceRoom.OnNext(Unit.Default);
             }
-            if (this.voiceRoomManager.ShouldBeInRoom) { ImGui.EndDisabled(); }
+            ImGui.EndDisabled();
         }
         else
         {
@@ -186,12 +186,12 @@ public class MainWindow : Window, IMainWindow, IDisposable
             }
             ImGui.SameLine(); HelpMarker("Sets the password if joining your own room");
 
-            if (this.voiceRoomManager.InRoom) { ImGui.BeginDisabled(); }
+            ImGui.BeginDisabled(this.voiceRoomManager.InRoom);
             if (ImGui.Button("Join Private Voice Room"))
             {
                 this.joinVoiceRoom.OnNext(Unit.Default);
             }
-            if (this.voiceRoomManager.InRoom) { ImGui.EndDisabled(); }
+            ImGui.EndDisabled();
         }
         //ImGui.Indent(-indent);
 
@@ -387,19 +387,13 @@ public class MainWindow : Window, IMainWindow, IDisposable
                 ImGui.Text("Mute Out Of Map Players");
                 ImGui.TableNextColumn();
                 ImGui.SetNextItemWidth(ImGui.GetColumnWidth());
-                if (this.voiceRoomManager.InPublicRoom)
-                {
-                    ImGui.BeginDisabled();
-                }
+                ImGui.BeginDisabled(this.voiceRoomManager.InPublicRoom);
                 var muteOutOfMapPlayers = this.voiceRoomManager.InPublicRoom || this.MuteOutOfMapPlayers.Value;
                 if (ImGui.Checkbox("##MuteOutOfMapPlayers", ref muteOutOfMapPlayers))
                 {
                     this.MuteOutOfMapPlayers.Value = muteOutOfMapPlayers;
                 }
-                if (this.voiceRoomManager.InPublicRoom)
-                {
-                    ImGui.EndDisabled();
-                }
+                ImGui.EndDisabled();
                 ImGui.SameLine(); HelpMarker("Can only disable in private rooms");
 
                 ImGui.EndTable();

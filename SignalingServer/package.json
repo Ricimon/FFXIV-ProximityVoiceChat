@@ -8,7 +8,7 @@
     "license": "MIT",
     "scripts": {
         "start": "env-cmd -f ./config/prod.env node src/server.js",
-        "dev": "env-cmd -f ./config/dev.env nodemon src/server.js",
+        "dev": "env-cmd -f ./config/dev.env nodemon src/server.js | pino-pretty",
         "client1": "nodemon ./examples/example-client1.js",
         "client2": "nodemon ./examples/example-client2.js"
     },
@@ -17,12 +17,14 @@
         "env-cmd": "^10.1.0",
         "express": "^4.19.2",
         "lowdb": "^7.0.1",
+        "pino": "^9.6.0",
         "sirv": "^2.0.4",
         "socket.io": "^4.7.5",
         "socket.io-client": "^4.7.5"
     },
     "devDependencies": {
-        "nodemon": "^3.1.4"
+        "nodemon": "^3.1.4",
+        "pino-pretty": "^13.0.0"
     },
     "engines": {
         "node": ">=14.x"

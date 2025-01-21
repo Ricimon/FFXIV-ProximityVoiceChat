@@ -1,4 +1,5 @@
 // IMPORTS
+import pino from "pino"
 import http from "http";
 import express from "express";
 import { Server } from "socket.io";
@@ -6,6 +7,28 @@ import cors from "cors";
 import sirv from "sirv";
 import { JSONFilePreset } from 'lowdb/node';
 import { state } from './state.js';
+
+// LOGGER
+const transport = pino.transport({
+  targets: [
+    {
+      level: 'trace',
+      target: 'pino/file',
+      options: {
+        destination: `${import.meta.dirname}/../logs/server.log`,
+        mkdir: true,
+      },
+    },
+    {
+      level: 'trace',
+      target: 'pino/file',
+      options: {
+        destination: 1,
+      },
+    },
+  ],
+});
+const logger = pino(transport);
 
 // ENVIRONMENT VARIABLES
 const PORT = process.env.PORT || 3030;
@@ -58,7 +81,7 @@ function getSocketRoomName(roomName, instance) {
 
 // MESSAGING LOGIC
 io.on("connection", (socket) => {
-  console.log("User connected with id", socket.id);
+  logger.info(`(${socket.id}) User connected`);
 
   socket.on("ready", async (peerId, peerType, roomName, roomPassword, playersInInstance) => {
     // Make sure that the hostname is unique, if the hostname is already in connections, send an error and disconnect
@@ -89,14 +112,14 @@ io.on("connection", (socket) => {
 
     if (roomName.startsWith("public")) {
       // Public room
-      console.log(`Public room join request for room ${roomName} received with players in instance: [${playersInInstance}]`);
+      logger.info(`(${socket.id}) Public room join request for room ${roomName} received with players in instance: [${playersInInstance}]`);
 
       // Try to find a player already in the map, which will correspond to the same instance for the connecting player
       if (playersInInstance) {
         for (const p in playersInInstance) {
           if (p in connections && connections[p].roomName == roomName) {
             const foundPeer = connections[p];
-            console.log(`Found player ${p} in existing room instance ${getSocketRoomName(foundPeer.roomName, foundPeer.instanceNumber)}`)
+            logger.info(`(${socket.id}) Found player ${p} in existing room instance ${getSocketRoomName(foundPeer.roomName, foundPeer.instanceNumber)}`)
             instanceNumber = connections[p].instanceNumber;
             break;
           }
@@ -112,7 +135,7 @@ io.on("connection", (socket) => {
             instanceNumber++;
           }
         }
-        //console.log(`No players found in existing room instances. Creating new instance with number ${instanceNumber}`);
+        logger.info(`(${socket.id}) No players found in existing room instances. Creating new instance with number ${instanceNumber}`);
       }
     }
     else {
@@ -124,13 +147,17 @@ io.on("connection", (socket) => {
       } else {
         // Check that we can connect to an existing private room
         if (!(roomName in roomProperties)) {
+          logger.info(`(${socket.id}) Failed to connect to room ${roomName}, room does not exist.`);
           socket.emit("serverDisconnect", {
             message: `Cannot connect to room ${roomName}, room does not exist.`,
           });
           socket.disconnect(true);
           return;
         }
+        
+        // Check password
         if (roomPassword !== roomProperties[roomName].password) {
+          logger.info(`(${socket.id}) Failed to connect to room ${roomName}, incorrect password.`);
           socket.emit("serverDisconnect", {
             message: `Cannot connect to room ${roomName}, incorrect password.`,
           });
@@ -145,7 +172,7 @@ io.on("connection", (socket) => {
     // Join socket room
     socket.join(socketRoomName);
     socket.room = socketRoomName;
-    console.log(`Added ${peerId} to connections, in room ${socketRoomName}`);
+    logger.info(`(${socket.id}) Added ${peerId} to connections, in room ${socketRoomName}`);
 
     // Get (or create) room and instance
     let room = rooms[roomName] || (rooms[roomName] = {});
@@ -201,14 +228,14 @@ io.on("connection", (socket) => {
     if (targetPeer) {
       io.to(targetPeer.socketId).emit("message", { ...message });
     } else {
-      console.log(`Target ${target} not found`);
+      logger.info(`(${socket.id}) Target ${target} not found`);
     }
   });
 
   socket.on("disconnect", () => {
     const disconnectingPeer = Object.values(connections).find((peer) => peer.socketId === socket.id);
     if (disconnectingPeer) {
-      console.log(`Disconnected ${socket.id} with peerId ${disconnectingPeer.peerId} from room ${socket.room}`);
+      logger.info(`(${socket.id}) Disconnected peerId ${disconnectingPeer.peerId} from room ${socket.room}`);
       // Make all peers close their peer channels
       socket.to(socket.room).emit("message", {
         from: disconnectingPeer.peerId,
@@ -230,7 +257,7 @@ io.on("connection", (socket) => {
         delete rooms[disconnectingPeer.roomName];
       }
     } else {
-      console.log(socket.id, "has disconnected");
+      logger.info(`(${socket.id}) User disconnected`);
     }
   });
 });
@@ -239,4 +266,4 @@ io.on("connection", (socket) => {
 app.use(sirv("public", { DEV }));
 
 // RUN APP
-server.listen(PORT, console.log(`Listening on PORT ${PORT}`));
+server.listen(PORT, logger.info(`Listening on PORT ${PORT}`));

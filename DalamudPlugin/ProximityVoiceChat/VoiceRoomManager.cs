@@ -22,12 +22,6 @@ namespace ProximityVoiceChat;
 
 public class VoiceRoomManager : IDisposable
 {
-    public class Player
-    {
-        public float Distance { get; set; } = float.NaN;
-        public float Volume { get; set; } = 1.0f;
-    }
-
     /// <summary>
     /// When in a public room, this plugin will automatically switch voice rooms when the player changes maps.
     /// This property indicates if the player should be connected to a public voice room.
@@ -73,7 +67,7 @@ public class VoiceRoomManager : IDisposable
     public SignalingChannel? SignalingChannel { get; private set; }
     public WebRTCManager? WebRTCManager { get; private set; }
 
-    public Dictionary<string, Player> TrackedPlayers { get; } = [];
+    public Dictionary<string, TrackedPlayer> TrackedPlayers { get; } = [];
 
     private const string PeerType = "player";
 
@@ -294,8 +288,29 @@ public class VoiceRoomManager : IDisposable
                     this.WebRTCManager.Peers.TryGetValue(playerName, out var peer) &&
                     peer.PeerConnection.DataChannels.Count > 0)
                 {
+                    var trackedPlayer = this.TrackedPlayers.TryGetValue(playerName, out var tp) ? tp : null;
                     var distance = Vector3.Distance(this.clientState.LocalPlayer.Position, player.Position);
-                    var deathMute = this.configuration.MuteDeadPlayers && player.IsDead;
+                    var deathMute = this.configuration.MuteDeadPlayers;
+
+                    if (trackedPlayer != null)
+                    {
+                        if (!player.IsDead)
+                        {
+                            trackedPlayer.LastTickFoundAlive = Environment.TickCount;
+                            deathMute = false;
+                        }
+                        else if (deathMute &&
+                            trackedPlayer.LastTickFoundAlive.HasValue &&
+                            Environment.TickCount - trackedPlayer.LastTickFoundAlive < this.configuration.MuteDeadPlayersDelayMs)
+                        {
+                            deathMute = false;
+                        }
+                    }
+                    else
+                    {
+                        deathMute = deathMute && player.IsDead;
+                    }
+
                     float volume;
                     if (deathMute)
                     {
@@ -309,10 +324,10 @@ public class VoiceRoomManager : IDisposable
                     }
 
                     this.audioDeviceController.SetChannelVolume(peer.PeerId, volume * this.configuration.MasterVolume);
-                    if (this.TrackedPlayers.TryGetValue(playerName, out var tp))
+                    if (trackedPlayer != null)
                     {
-                        tp.Distance = distance;
-                        tp.Volume = volume;
+                        trackedPlayer.Distance = distance;
+                        trackedPlayer.Volume = volume;
                     }
                 }
             }

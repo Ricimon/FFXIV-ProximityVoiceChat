@@ -276,10 +276,12 @@ public class VoiceRoomManager : IDisposable
             {
                 return;
             }
-            if (this.WebRTCManager.Peers.Select(kv => kv.Value.PeerConnection.DataChannels.Count).All(c => c == 0))
+            if (this.WebRTCManager.Peers.All(kv => kv.Value.PeerConnection.DataChannels.Count == 0))
             {
                 return;
             }
+
+            var thisTick = Environment.TickCount;
 
             foreach (var player in GetPlayersInInstance())
             {
@@ -296,12 +298,12 @@ public class VoiceRoomManager : IDisposable
                     {
                         if (!player.IsDead)
                         {
-                            trackedPlayer.LastTickFoundAlive = Environment.TickCount;
+                            trackedPlayer.LastTickFoundAlive = thisTick;
                             deathMute = false;
                         }
                         else if (deathMute &&
                             trackedPlayer.LastTickFoundAlive.HasValue &&
-                            Environment.TickCount - trackedPlayer.LastTickFoundAlive < this.configuration.MuteDeadPlayersDelayMs)
+                            thisTick - trackedPlayer.LastTickFoundAlive < this.configuration.MuteDeadPlayersDelayMs)
                         {
                             deathMute = false;
                         }

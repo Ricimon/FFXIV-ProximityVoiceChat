@@ -47,8 +47,8 @@ const TURN_SECRET = process.env.TURN_SECRET || "secret";
 const app = express();
 app.use(express.json(), cors(), 
   (req, res, next) => {
-    logger.info(req.headers);
-    if (req.headers.host !== `app:{PORT}`) {
+    // expect this server to be placed behind a reverse proxy
+    if (req.headers["x-forwarded-host"]) {
       basicAuth({
         users: { [WEB_USER] : WEB_PASS },
         challenge: true,

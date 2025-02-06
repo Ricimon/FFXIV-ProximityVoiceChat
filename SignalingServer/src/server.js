@@ -47,14 +47,15 @@ const TURN_SECRET = process.env.TURN_SECRET || "secret";
 const app = express();
 app.use(express.json(), cors(), 
   (req, res, next) => {
-    if (req.headers.host !== 'localhost') {
-      app.use(basicAuth({
+    logger.info(req.headers);
+    if (req.headers.host !== `app:{PORT}`) {
+      basicAuth({
         users: { [WEB_USER] : WEB_PASS },
         challenge: true,
         realm: "FFXIV-ProximityVoiceChat-WebServer",
-      }))
+      })(req, res, next);
     }
-    next();
+    else { next(); }
   });
 const server = http.createServer(app);
 const io = new Server(server, { cors: {} });

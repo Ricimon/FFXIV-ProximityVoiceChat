@@ -3,11 +3,11 @@
 namespace ProximityVoiceChat.WebRTC
 {
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
-    public class SignalMessage
+    public struct SignalMessage
     {
-        public class SignalPayload
+        public struct SignalPayload
         {
-            public class Connection
+            public struct Connection
             {
                 public string socketId;
                 public string peerId;
@@ -15,7 +15,7 @@ namespace ProximityVoiceChat.WebRTC
                 public ushort audioState;
             }
 
-            public class IcePayload
+            public struct IcePayload
             {
                 public string candidate;
                 public string sdpMid;
@@ -33,11 +33,19 @@ namespace ProximityVoiceChat.WebRTC
                 public string usernameFragment;
             }
 
+            public struct TURNConfig
+            {
+                public string url;
+                public string username;
+                public string password;
+            }
+
             public string action;
             public Connection[] connections;
             public bool? bePolite;
+            public TURNConfig? turnConfig;
             public RTCSessionDescriptionInit sdp;
-            public IcePayload ice;
+            public IcePayload? ice;
         }
 
         public string from;

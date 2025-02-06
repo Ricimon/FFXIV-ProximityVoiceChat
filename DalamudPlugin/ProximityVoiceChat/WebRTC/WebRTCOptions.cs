@@ -4,7 +4,7 @@ public class WebRTCOptions
 {
     public bool EnableDataChannel;
     public WebRTCDataChannelHandler.IFactory? DataChannelHandlerFactory;
-    public required string TurnServerUrl;
-    public string? TurnUsername;
-    public string? TurnPassword;
+    public string? TurnServerUrlOverride;
+    public string? TurnServerUsernameOverride;
+    public string? TurnServerPasswordOverride;
 }

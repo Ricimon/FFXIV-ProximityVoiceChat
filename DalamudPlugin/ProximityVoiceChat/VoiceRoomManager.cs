@@ -85,9 +85,6 @@ public class VoiceRoomManager : IDisposable
     private readonly ILogger logger;
 
     private readonly LoadConfig loadConfig;
-    private readonly string signalingServerUrl = "http://ffxiv.ricimon.com";
-    //private readonly string signalingServerUrl = "http://192.168.1.101:3030";
-    private readonly string turnServerUrl = "turn:ffxiv.ricimon.com:3478";
     private readonly PeriodicTimer volumeUpdateTimer = new(TimeSpan.FromMilliseconds(100));
     private readonly SemaphoreSlim frameworkThreadSemaphore = new(1, 1);
 
@@ -405,17 +402,17 @@ public class VoiceRoomManager : IDisposable
         this.logger.Trace("Creating SignalingChannel class with peerId {0}", playerName);
         this.SignalingChannel ??= new SignalingChannel(playerName,
             PeerType,
-            this.loadConfig.signalingServerOverride ?? this.signalingServerUrl,
-            this.loadConfig.signalingServerToken ?? string.Empty,
+            this.loadConfig.signalingServerUrl,
+            this.loadConfig.signalingServerToken,
             this.logger,
             true);
         var options = new WebRTCOptions()
         {
             EnableDataChannel = true,
             DataChannelHandlerFactory = this.dataChannelHandlerFactory,
-            TurnServerUrl = this.loadConfig.turnServerOverride ?? this.turnServerUrl,
-            TurnUsername = this.loadConfig.turnUsername,
-            TurnPassword = this.loadConfig.turnPassword,
+            TurnServerUrlOverride = this.loadConfig.turnServerUrlOverride,
+            TurnServerUsernameOverride = this.loadConfig.turnServerUsernameOverride,
+            TurnServerPasswordOverride = this.loadConfig.turnServerPasswordOverride,
         };
         this.WebRTCManager ??= new WebRTCManager(playerName, PeerType, this.SignalingChannel, options, this.logger, true);
 

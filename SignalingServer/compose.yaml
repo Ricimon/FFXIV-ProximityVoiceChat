@@ -1,3 +1,7 @@
+volumes:
+  prometheus_data: {}
+  #grafana_data: {}
+
 services:
   app:
     image: node
@@ -11,3 +15,31 @@ services:
     volumes:
       - ./:/home/node/app
     command: bash -c "npm ci --omit=dev --no-audit && npm start"
+
+  prometheus:
+    image: prom/prometheus
+    restart: unless-stopped
+    env_file: ./config/prod.env
+    volumes:
+      - ./prometheus:/etc/prometheus
+      - prometheus_data:/prometheus
+    ports:
+      - 9090:9090
+    expose:
+      - 9090
+
+  #grafana:
+  #  image: grafana/grafana
+  #  restart: unless-stopped
+  #  env_file: ./config/prod.env
+  #  volumes:
+  #    - grafana_data:/var/lib/grafana
+  #    - ./grafana/provisioning:/etc/grafana/provisioning
+  #  environment:
+  #    - GF_AUTH_DISABLE_LOGIN_FORM=true
+  #    - GF_AUTH_ANONYMOUS_ENABLED=true
+  #    - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+  #  ports:
+  #    - 3000:3000
+  #  expose:
+  #    - 3000

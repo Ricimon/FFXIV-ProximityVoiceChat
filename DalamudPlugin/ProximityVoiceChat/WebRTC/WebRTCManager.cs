@@ -40,17 +40,10 @@ public class WebRTCManager : IDisposable
         this.options = options;
         this.logger = logger;
         this.verbose = verbose;
-        config = new PeerConnectionConfiguration
+        this.config = new PeerConnectionConfiguration
         {
-            IceServers =
-            [
-                 new()
-                 {
-                     Urls = { options.TurnServerUrl },
-                     TurnUserName = options.TurnUsername,
-                     TurnPassword = options.TurnPassword,
-                 },
-            ]
+            IceServers = [ new() { Urls = [string.Empty] } ]
+            // TURN config options are to be filled from Signaling Server response
         };
     }
 
@@ -105,6 +98,10 @@ public class WebRTCManager : IDisposable
                 switch (payload.action)
                 {
                     case "open":
+                        var iceServer = this.config.IceServers[0];
+                        iceServer.Urls[0] = this.options.TurnServerUrlOverride ?? payload.turnConfig?.url;
+                        iceServer.TurnUserName = this.options.TurnServerUsernameOverride ?? payload.turnConfig?.username;
+                        iceServer.TurnPassword = this.options.TurnServerPasswordOverride ?? payload.turnConfig?.password;
                         foreach (var c in payload.connections)
                         {
                             await InitializePeer(c.peerId, cancellationToken: this.disconnectCts!.Token);
@@ -201,6 +198,7 @@ public class WebRTCManager : IDisposable
         if (peers.TryGetValue(peerId, out var peer))
         {
             this.logger.Debug("Initializing peer connection to {0}", peerId);
+            this.logger.Trace("PeerConnectionConfig: {0}", Newtonsoft.Json.JsonConvert.SerializeObject(this.config));
             var peerConnection = peer.PeerConnection;
             await peerConnection.InitializeAsync(this.config, cancellationToken);
 
@@ -336,7 +334,7 @@ public class WebRTCManager : IDisposable
         }
     }
 
-    private void UpdateIceCandidate(Peer peer, SignalMessage.SignalPayload.IcePayload candidate)
+    private void UpdateIceCandidate(Peer peer, SignalMessage.SignalPayload.IcePayload? candidate)
     {
         var peerConnection = peer.PeerConnection;
         try
@@ -345,9 +343,9 @@ public class WebRTCManager : IDisposable
             {
                 peerConnection.AddIceCandidate(new IceCandidate
                 {
-                    SdpMid = candidate.sdpMid,
-                    SdpMlineIndex = candidate.sdpMLineIndex,
-                    Content = candidate.candidate,
+                    SdpMid = candidate.Value.sdpMid,
+                    SdpMlineIndex = candidate.Value.sdpMLineIndex,
+                    Content = candidate.Value.candidate,
                 });
             }
         }

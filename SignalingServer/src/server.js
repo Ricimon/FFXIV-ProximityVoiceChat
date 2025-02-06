@@ -1,27 +1,31 @@
 // IMPORTS
 import pino from "pino"
+import crypto from "crypto";
 import http from "http";
 import express from "express";
+import basicAuth from "express-basic-auth";
 import { Server } from "socket.io";
 import cors from "cors";
 import sirv from "sirv";
-import { JSONFilePreset } from 'lowdb/node';
-import { state } from './state.js';
+import { JSONFilePreset } from "lowdb/node";
+import client from "prom-client";
+import ioMetrics from "socket.io-prometheus";
+import { state } from "./state.js";
 
 // LOGGER
 const transport = pino.transport({
   targets: [
     {
-      level: 'trace',
-      target: 'pino/file',
+      level: "trace",
+      target: "pino/file",
       options: {
         destination: `${import.meta.dirname}/../logs/server.log`,
         mkdir: true,
       },
     },
     {
-      level: 'trace',
-      target: 'pino/file',
+      level: "trace",
+      target: "pino/file",
       options: {
         destination: 1,
       },
@@ -34,19 +38,56 @@ const logger = pino(transport);
 const PORT = process.env.PORT || 3030;
 const DEV = process.env.NODE_ENV === "development";
 const TOKEN = process.env.TOKEN;
+const WEB_USER = process.env.WEB_USER || "admin";
+const WEB_PASS = process.env.WEB_PASS || "";
+const TURN_URL = process.env.TURN_URL || "";
+const TURN_SECRET = process.env.TURN_SECRET || "secret";
 
 // SETUP SERVERS
 const app = express();
-app.use(express.json(), cors());
+app.use(express.json(), cors(), 
+  (req, res, next) => {
+    if (req.headers.host !== 'localhost') {
+      app.use(basicAuth({
+        users: { [WEB_USER] : WEB_PASS },
+        challenge: true,
+        realm: "FFXIV-ProximityVoiceChat-WebServer",
+      }))
+    }
+    next();
+  });
 const server = http.createServer(app);
 const io = new Server(server, { cors: {} });
 
 // SETUP DB
 const defaultData = { roomProperties: {} };
-const db = await JSONFilePreset('db.json', defaultData);
+const db = await JSONFilePreset("db.json", defaultData);
 const { roomProperties } = db.data;
 const rooms = state.rooms;
 const connections = state.connections;
+
+// SETUP PROMETHEUS METRICS
+const register = client.register;
+client.collectDefaultMetrics({
+  app: "FFXIV-ProximityVoiceChat-SignalingServer",
+  //prefix: "node_",
+  timeout: 10000,
+  gcDuration: [0.001, 0.01, 0.1, 1, 2, 5],
+  register
+});
+ioMetrics(io);
+
+// EXPRESS HTTP ENDPOINTS
+app.get("/connections", (req, res) => {
+  res.json(Object.values(connections));
+});
+app.get("/rooms", (req, res) => {
+  res.json(rooms);
+});
+app.get("/metrics", async (req, res) => {
+  res.setHeader("Content-Type", register.contentType);
+  res.send(await register.metrics());
+})
 
 // AUTHENTICATION MIDDLEWARE
 io.use((socket, next) => {
@@ -56,14 +97,6 @@ io.use((socket, next) => {
   } else {
     next(new Error("Authentication error"));
   }
-});
-
-// API ENDPOINT TO DISPLAY THE CONNECTION TO THE SIGNALING SERVER
-app.get("/connections", (req, res) => {
-  res.json(Object.values(connections));
-});
-app.get("/rooms", (req, res) => {
-  res.json(rooms);
 });
 
 // UTILITY FUNCTIONS
@@ -77,6 +110,22 @@ function isEmpty(obj) {
 }
 function getSocketRoomName(roomName, instance) {
   return `${roomName}-${instance}`;
+}
+//https://stackoverflow.com/a/35767224
+function getTURNConfig() {
+  var unixTimestamp = Math.floor(Date.now() / 1000) + 24*3600, // this credential would be valid for the next 24 hours
+    username = [unixTimestamp, "ffxivproximityvoicechat"].join(':'),
+    password,
+    hmac = crypto.createHmac("sha1", TURN_SECRET);
+  hmac.setEncoding("base64");
+  hmac.write(username);
+  hmac.end();
+  password = hmac.read();
+  return {
+    url: TURN_URL,
+    username: username,
+    password: password
+  };
 }
 
 // MESSAGING LOGIC
@@ -183,7 +232,12 @@ io.on("connection", (socket) => {
       socket.send({
         from: "all",
         target: peerId,
-        payload: { action: "open", connections: Object.values(instance), bePolite: false } // The new peer doesn't need to be polite.
+        payload: { 
+          action: "open",
+          connections: Object.values(instance),
+          bePolite: false, // The new peer doesn't need to be polite.
+          turnConfig: getTURNConfig()
+        },
       });
     }
 
@@ -204,7 +258,12 @@ io.on("connection", (socket) => {
     socket.to(socket.room).emit("message", {
       from: peerId,
       target: "all",
-      payload: { action: "open", connections: [newPeer], bePolite: true }, // send connections object with an array containing the only new peer and make all existing peers polite.
+      payload: { 
+        action: "open",
+        connections: [newPeer],
+        bePolite: true,  // send connections object with an array containing the only new peer and make all existing peers polite.
+        turnConfig: getTURNConfig()
+      },
     })
   });
 

@@ -9,22 +9,27 @@
     "scripts": {
         "start": "env-cmd -f ./config/prod.env node src/server.js",
         "dev": "env-cmd -f ./config/dev.env nodemon src/server.js | pino-pretty",
-        "client1": "nodemon ./examples/example-client1.js",
-        "client2": "nodemon ./examples/example-client2.js"
+        "client1": "env-cmd -f ./config/prod.env nodemon --ignore './db.json' ./examples/example-client1.js",
+        "client2": "env-cmd -f ./config/dev.env nodemon --ignore './db.json' ./examples/example-client2.js"
     },
     "dependencies": {
         "cors": "^2.8.5",
+        "crypto": "^1.0.1",
         "env-cmd": "^10.1.0",
         "express": "^4.19.2",
+        "express-basic-auth": "^1.2.1",
         "lowdb": "^7.0.1",
         "pino": "^9.6.0",
+        "prom-client": ">=10 <15",
         "sirv": "^2.0.4",
         "socket.io": "^4.7.5",
-        "socket.io-client": "^4.7.5"
+        "socket.io-client": "^4.7.5",
+        "socket.io-prometheus": "^0.3.0"
     },
     "devDependencies": {
         "nodemon": "^3.1.4",
-        "pino-pretty": "^13.0.0"
+        "pino-pretty": "^13.0.0",
+        "wrtc": "^0.4.7"
     },
     "engines": {
         "node": ">=14.x"

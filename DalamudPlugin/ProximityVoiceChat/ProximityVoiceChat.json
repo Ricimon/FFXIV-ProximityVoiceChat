@@ -2,8 +2,9 @@
   "Author": "Ricimon",
   "Name": "ProximityVoiceChat",
   "Punchline":  "",
-  "Description": "An in-game voice chat plugin with character proximity detection. [IN DEVELOPMENT]",
+  "Description": "An in-game voice chat plugin with character proximity detection.",
   "RepoUrl": "https://github.com/Ricimon/FFXIV-ProximityVoiceChat",
+  "IconUrl": "https://raw.githubusercontent.com/Ricimon/FFXIV-ProximityVoiceChat/master/images/icon.png",
   "InternalName": "ProximityVoiceChat",
   "ApplicableVersion": "any",
   "Tags": [

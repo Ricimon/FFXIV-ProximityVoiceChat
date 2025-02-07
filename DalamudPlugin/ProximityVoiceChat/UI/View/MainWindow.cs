@@ -58,6 +58,7 @@ public class MainWindow : Window, IMainWindow, IDisposable
     public IReactiveProperty<float> AudioFalloffMaximumDistance { get; } = new ReactiveProperty<float>();
     public IReactiveProperty<float> AudioFalloffFactor { get; } = new ReactiveProperty<float>();
     public IReactiveProperty<bool> MuteDeadPlayers { get; } = new ReactiveProperty<bool>();
+    public IReactiveProperty<int> MuteDeadPlayersDelayMs { get; } = new ReactiveProperty<int>();
     public IReactiveProperty<bool> MuteOutOfMapPlayers { get; } = new ReactiveProperty<bool>();
 
     public IReactiveProperty<bool> PrintLogsToChat { get; } = new ReactiveProperty<bool>();
@@ -380,6 +381,14 @@ public class MainWindow : Window, IMainWindow, IDisposable
                 if (ImGui.Checkbox("##MuteDeadPlayers", ref muteDeadPlayers))
                 {
                     this.MuteDeadPlayers.Value = muteDeadPlayers;
+                }
+                ImGui.SameLine();
+                var muteDeadPlayersDelayMs = this.MuteDeadPlayersDelayMs.Value;
+                ImGui.Text("Delay (ms)");
+                ImGui.SameLine(); ImGui.SetNextItemWidth(50);
+                if (ImGui.InputInt("##Delay (ms)", ref muteDeadPlayersDelayMs, 0))
+                {
+                    this.MuteDeadPlayersDelayMs.Value = muteDeadPlayersDelayMs;
                 }
 
                 ImGui.TableNextRow(); ImGui.TableNextColumn();

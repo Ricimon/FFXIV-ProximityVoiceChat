@@ -91,6 +91,8 @@ public class MainWindowPresenter(
             f => { this.configuration.FalloffModel.FalloffFactor = f; this.configuration.Save(); }, this.configuration.FalloffModel.FalloffFactor);
         Bind(this.view.MuteDeadPlayers,
             b => { this.configuration.MuteDeadPlayers = b; this.configuration.Save(); }, this.configuration.MuteDeadPlayers);
+        Bind(this.view.MuteDeadPlayersDelayMs,
+            f => { this.configuration.MuteDeadPlayersDelayMs = f; this.configuration.Save(); }, this.configuration.MuteDeadPlayersDelayMs);
         Bind(this.view.MuteOutOfMapPlayers,
             b => { this.configuration.MuteOutOfMapPlayers = b; this.configuration.Save(); }, this.configuration.MuteOutOfMapPlayers);
 

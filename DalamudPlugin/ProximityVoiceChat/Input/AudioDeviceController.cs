@@ -116,7 +116,7 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
     public event EventHandler<WaveInEventArgs>? OnAudioRecordingSourceDataAvailable;
     public bool RecordingDataHasActivity => this.lastAudioRecordingSourceData != null &&
         (this.configuration.SuppressNoise ?
-            this.voiceActivityDetector.HasSpeech(this.lastAudioRecordingSourceData.Buffer) :
+            this.selfVoiceActivityDetector.HasSpeech(this.lastAudioRecordingSourceData.Buffer) :
             this.lastAudioRecordingSourceData.Buffer.Any(b => b != default));
 
     private class PlaybackChannel
@@ -125,6 +125,11 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
         public required BufferedWaveProvider BufferedWaveProvider { get; set; }
         public WaveInEventArgs? LastSampleAdded { get; set; }
         public int LastSampleAddedTimestampMs { get; set; }
+        public WebRtcVad VoiceActivityDetector { get; set; } = new()
+        {
+            FrameLength = WebRtcVadSharp.FrameLength.Is20ms,
+            SampleRate = WebRtcVadSharp.SampleRate.Is48kHz,
+        };
     }
 
     private WaveInEvent? audioRecordingSource;
@@ -143,7 +148,7 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
     private readonly MixingSampleProvider outputSampleProvider;
     private readonly Denoiser denoiser = new();
     private readonly float[] denoiserFloatSamples = new float[GetSampleSize(SampleRate, FrameLength, 1) / 2];
-    private readonly WebRtcVad voiceActivityDetector = new()
+    private readonly WebRtcVad selfVoiceActivityDetector = new()
     {
         FrameLength = WebRtcVadSharp.FrameLength.Is20ms,
         SampleRate = WebRtcVadSharp.SampleRate.Is48kHz,
@@ -318,7 +323,7 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
             {
                 return false;
             }
-            return this.voiceActivityDetector.HasSpeech(channel.LastSampleAdded.Buffer);
+            return channel.VoiceActivityDetector.HasSpeech(channel.LastSampleAdded.Buffer);
         }
         return false;
     }

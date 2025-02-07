@@ -1,4 +1,5 @@
 prod.env
+db.json
 
 # Logs
 logs

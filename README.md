@@ -12,7 +12,7 @@ This plugin adds proximity voice chat functionality to FFXIV as a Dalamud plugin
 
 #### Support discord
 
-![Discord Banner](https://discord.com/api/guilds/669688899248979968/widget.png?style=banner2)
+[![Discord Banner](https://discord.com/api/guilds/669688899248979968/widget.png?style=banner2)](https://discord.gg/rSucAJ6A7u)
 
 ## Installation
 - Enter `/xlsettings` in the chat window and go to the **Experimental** tab in the opened window.

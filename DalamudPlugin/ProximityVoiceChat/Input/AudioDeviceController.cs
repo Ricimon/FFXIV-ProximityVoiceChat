@@ -119,7 +119,7 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
             this.selfVoiceActivityDetector.HasSpeech(this.lastAudioRecordingSourceData.Buffer) :
             this.lastAudioRecordingSourceData.Buffer.Any(b => b != default));
 
-    private class PlaybackChannel
+    private class PlaybackChannel : IDisposable
     {
         public required VolumeSampleProvider VolumeSampleProvider { get; set; }
         public required BufferedWaveProvider BufferedWaveProvider { get; set; }
@@ -130,6 +130,11 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
             FrameLength = WebRtcVadSharp.FrameLength.Is20ms,
             SampleRate = WebRtcVadSharp.SampleRate.Is48kHz,
         };
+
+        public void Dispose()
+        {
+            this.VoiceActivityDetector.Dispose();
+        }
     }
 
     private WaveInEvent? audioRecordingSource;
@@ -202,6 +207,12 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
     {
         DisposeAudioRecordingSource();
         DisposeAudioPlaybackSource();
+        this.denoiser.Dispose();
+        this.selfVoiceActivityDetector.Dispose();
+        foreach(var channel in this.playbackChannels.Values)
+        {
+            channel.Dispose();
+        }
         GC.SuppressFinalize(this);
     }
 
@@ -264,6 +275,7 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
             channel.BufferedWaveProvider.ClearBuffer();
             this.outputSampleProvider.RemoveMixerInput(channel.VolumeSampleProvider);
             this.playbackChannels.Remove(channelName);
+            channel.Dispose();
         }
     }
 
@@ -503,7 +515,8 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
 
         while (sampleIndex < input.Length)
         {
-            short outsample = (short)(input[sampleIndex] * short.MaxValue);
+            // Math.Clamp solution found from https://github.com/mumble-voip/mumble/pull/5363
+            short outsample = (short)(Math.Clamp(input[sampleIndex] * short.MaxValue, short.MinValue, short.MaxValue));
             output[pcmIndex] = (byte)(outsample & 0xff);
             output[pcmIndex + 1] = (byte)((outsample >> 8) & 0xff);
 

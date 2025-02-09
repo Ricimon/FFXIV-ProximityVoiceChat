@@ -112,13 +112,14 @@ public class MainWindow : Window, IMainWindow, IDisposable
         using var tabs = ImRaii.TabBar("pvc-tabs");
         if (!tabs) return;
 
-        ImGui.PushFont(UiBuilder.IconFont);
-        var gearIcon = FontAwesomeIcon.Cog.ToIconString();
-        ImGui.SameLine(ImGui.GetWindowContentRegionMax().X - ImGui.GetWindowContentRegionMin().X - ImGuiHelpers.GetButtonSize(gearIcon).X);
-        ImGui.SetCursorPosY(ImGui.GetCursorPosY() - 5);
-        if (ImGui.Button(gearIcon)) this.configWindowPresenter.View.Visible = true;
+        using (var iconFont = ImRaii.PushFont(UiBuilder.IconFont))
+        {
+            var gearIcon = FontAwesomeIcon.Cog.ToIconString();
+            ImGui.SameLine(ImGui.GetWindowContentRegionMax().X - ImGui.GetWindowContentRegionMin().X - ImGuiHelpers.GetButtonSize(gearIcon).X);
+            ImGui.SetCursorPosY(ImGui.GetCursorPosY() - 5);
+            if (ImGui.Button(gearIcon)) this.configWindowPresenter.View.Visible = true;
+        }
 
-        ImGui.PopFont();
         if (ImGui.IsItemHovered()) {
             ImGui.SetTooltip("Configuration");
         }

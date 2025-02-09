@@ -145,9 +145,13 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
 
     private const int SampleRate = 48000; // RNNoise frequency
     private const int FrameLength = 20; // 20 ms, for max compatibility
+    // These values were hand-picked to maintain lowest latency without artifacting
+    private const int WaveOutDesiredLatency = 100;
+    private const int WaveOutNumberOfBuffers = 3;
 
     private readonly WaveFormat waveFormat = new(rate: 48000, bits: 16, channels: 1);
     private readonly Dictionary<string, PlaybackChannel> playbackChannels = [];
+    private readonly int maxPlaybackChannelBufferSize;
     private readonly BufferedWaveProvider micPlaybackWaveProvider;
     private readonly VolumeSampleProvider micPlaybackVolumeProvider;
     private readonly MixingSampleProvider outputSampleProvider;
@@ -194,6 +198,9 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
         this.deafen = configuration.Deafen;
         this.audioRecordingDeviceIndex = configuration.SelectedAudioInputDeviceIndex;
         this.audioPlaybackDeviceIndex = configuration.SelectedAudioOutputDeviceIndex;
+
+        // This is how buffer size is calculated in WaveOutEvent
+        this.maxPlaybackChannelBufferSize = this.waveFormat.ConvertLatencyToByteSize((WaveOutDesiredLatency + WaveOutNumberOfBuffers - 1) / WaveOutNumberOfBuffers) * WaveOutNumberOfBuffers;
 
         this.micPlaybackWaveProvider = new BufferedWaveProvider(this.waveFormat);
         this.micPlaybackVolumeProvider = new VolumeSampleProvider(this.micPlaybackWaveProvider.ToSampleProvider());
@@ -283,6 +290,15 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
     {
         if (this.playbackChannels.TryGetValue(channelName, out var channel))
         {
+            // If the output device cannot read from the playback buffer as fast as it is filled,
+            // then the playback buffer can get filled and introduce audio latency.
+            // This can occur during high system load.
+            // To remove this latency, we ensure the playback buffer never goes above the expected buffer size,
+            // calculated from the intended output device latency and buffer count.
+            if (channel.BufferedWaveProvider.BufferedBytes + sample.BytesRecorded > this.maxPlaybackChannelBufferSize)
+            {
+                channel.BufferedWaveProvider.ClearBuffer();
+            }
             channel.BufferedWaveProvider.AddSamples(sample.Buffer, 0, sample.BytesRecorded);
             channel.LastSampleAdded = sample;
             channel.LastSampleAddedTimestampMs = Environment.TickCount;
@@ -378,9 +394,8 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
             this.audioPlaybackSource = new WaveOutEvent
             {
                 DeviceNumber = this.AudioPlaybackDeviceIndex,
-                // These values were hand-picked to maintain lowest latency without artifacting
-                DesiredLatency = 100,
-                NumberOfBuffers = 3,
+                DesiredLatency = WaveOutDesiredLatency,
+                NumberOfBuffers = WaveOutNumberOfBuffers,
             };
             this.audioPlaybackSource.PlaybackStopped += (object? sender, StoppedEventArgs e) =>
             {

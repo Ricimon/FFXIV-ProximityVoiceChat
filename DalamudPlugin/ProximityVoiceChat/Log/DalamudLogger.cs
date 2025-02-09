@@ -19,8 +19,10 @@ public class DalamudLogger : ILogger, Microsoft.Extensions.Logging.ILogger
 
     public void Trace(string message, params object[] values)
     {
+#if DEBUG
         this.pluginLog.Verbose(message, values);
         Log(LogLevel.Trace, message, values);
+#endif
     }
 
     public void Debug(string message, params object[] values)

@@ -13,6 +13,7 @@ public class CommandDispatcher(
     private const string commandName = "/proximityvoicechat";
     private const string commandNameAlt = "/pvc";
     private const string configCommandName = "/proximityvoicechatconfig";
+    private const string configCommandNameAlt = "/pvcconfig";
 
     private readonly ICommandManager commandManager = commandManager ?? throw new ArgumentNullException(nameof(commandManager));
     private readonly MainWindowPresenter mainWindowPresenter = mainWindowPresenter ?? throw new ArgumentNullException(nameof(mainWindowPresenter));
@@ -28,20 +29,20 @@ public class CommandDispatcher(
         {
             HelpMessage = "Open the ProximityVoiceChat window"
         });
-#if DEBUG
         this.commandManager.AddHandler(configCommandName, new CommandInfo(OnConfigCommand)
         {
             HelpMessage = "Open the ProximityVoiceChat config window"
         });
-#endif
+        this.commandManager.AddHandler(configCommandNameAlt, new CommandInfo(OnConfigCommand)
+        {
+            HelpMessage = "Open the ProximityVoiceChat config window"
+        });
     }
 
     public void Dispose()
     {
         this.commandManager.RemoveHandler(commandName);
-#if DEBUG
         this.commandManager.RemoveHandler(configCommandName);
-#endif
     }
 
     private void OnCommand(string command, string args)

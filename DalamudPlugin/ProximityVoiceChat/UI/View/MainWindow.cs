@@ -7,7 +7,6 @@ using System.Numerics;
 using System.Reactive;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
-using ProximityVoiceChat.Log;
 using ProximityVoiceChat.UI.Util;
 using Microsoft.MixedReality.WebRTC;
 using System.Text;
@@ -16,6 +15,11 @@ using Dalamud.Plugin;
 using System.IO;
 using ProximityVoiceChat.WebRTC;
 using ProximityVoiceChat.Input;
+using Dalamud.Interface.Utility.Raii;
+using Dalamud.Interface.Utility;
+using Dalamud.Interface;
+using ProximityVoiceChat.UI.Presenter;
+using ProximityVoiceChat.Extensions;
 
 namespace ProximityVoiceChat.UI.View;
 
@@ -38,34 +42,10 @@ public class MainWindow : Window, IMainWindow, IDisposable
     private readonly Subject<Unit> leaveVoiceRoom = new();
     public IObservable<Unit> LeaveVoiceRoom => leaveVoiceRoom.AsObservable();
 
-    public IReactiveProperty<int> SelectedAudioInputDeviceIndex { get; } = new ReactiveProperty<int>(-1);
-    public IReactiveProperty<int> SelectedAudioOutputDeviceIndex { get; } = new ReactiveProperty<int>(-1);
-    public IReactiveProperty<bool> PlayingBackMicAudio { get; } = new ReactiveProperty<bool>();
-    public IReactiveProperty<bool> PushToTalk { get; } = new ReactiveProperty<bool>();
-    public IReactiveProperty<bool> EditingPushToTalkKeybind { get; } = new ReactiveProperty<bool>();
-    private readonly Subject<Unit> clearPushToTalkKeybind = new();
-    public IObservable<Unit> ClearPushToTalkKeybind => clearPushToTalkKeybind.AsObservable();
-    public IReactiveProperty<bool> SuppressNoise { get; } = new ReactiveProperty<bool>();
-
     public IObservable<bool> MuteMic => muteMic.AsObservable();
     private readonly Subject<bool> muteMic = new();
     public IObservable<bool> Deafen => deafen.AsObservable();
     private readonly Subject<bool> deafen = new();
-
-    public IReactiveProperty<float> MasterVolume { get; } = new ReactiveProperty<float>();
-    public IReactiveProperty<AudioFalloffModel.FalloffType> AudioFalloffType { get; } = new ReactiveProperty<AudioFalloffModel.FalloffType>();
-    public IReactiveProperty<float> AudioFalloffMinimumDistance { get; } = new ReactiveProperty<float>();
-    public IReactiveProperty<float> AudioFalloffMaximumDistance { get; } = new ReactiveProperty<float>();
-    public IReactiveProperty<float> AudioFalloffFactor { get; } = new ReactiveProperty<float>();
-    public IReactiveProperty<bool> MuteDeadPlayers { get; } = new ReactiveProperty<bool>();
-    public IReactiveProperty<int> MuteDeadPlayersDelayMs { get; } = new ReactiveProperty<int>();
-    public IReactiveProperty<bool> MuteOutOfMapPlayers { get; } = new ReactiveProperty<bool>();
-
-    public IReactiveProperty<bool> PrintLogsToChat { get; } = new ReactiveProperty<bool>();
-    public IReactiveProperty<int> MinimumVisibleLogLevel { get; } = new ReactiveProperty<int>();
-
-    private string[]? inputDevices;
-    private string[]? outputDevices;
 
     private readonly WindowSystem windowSystem;
     private readonly IDalamudPluginInterface pluginInterface;
@@ -75,7 +55,9 @@ public class MainWindow : Window, IMainWindow, IDisposable
     private readonly VoiceRoomManager voiceRoomManager;
     private readonly MapChangeHandler mapChangeHandler;
     private readonly Configuration configuration;
-    private readonly string[] falloffTypes;
+    private readonly ConfigWindowPresenter configWindowPresenter;
+    private readonly IClientState clientState;
+    private string privateRoomButtonText = "Create";
 
     public MainWindow(
         WindowSystem windowSystem,
@@ -84,7 +66,9 @@ public class MainWindow : Window, IMainWindow, IDisposable
         PushToTalkController pushToTalkController,
         VoiceRoomManager voiceRoomManager,
         MapChangeHandler mapChangeHandler,
-        Configuration configuration) : base(
+        Configuration configuration,
+        ConfigWindowPresenter configWindowPresenter, 
+        IClientState clientState) : base(
         PluginInitializer.Name)
     {
         this.windowSystem = windowSystem ?? throw new ArgumentNullException(nameof(windowSystem));
@@ -95,7 +79,8 @@ public class MainWindow : Window, IMainWindow, IDisposable
         this.voiceRoomManager = voiceRoomManager ?? throw new ArgumentNullException(nameof(voiceRoomManager));
         this.mapChangeHandler = mapChangeHandler ?? throw new ArgumentNullException(nameof(mapChangeHandler));
         this.configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
-        this.falloffTypes = Enum.GetNames(typeof(AudioFalloffModel.FalloffType));
+        this.configWindowPresenter = configWindowPresenter ?? throw new ArgumentNullException(nameof(configWindowPresenter));
+        this.clientState = clientState ?? throw new ArgumentNullException(nameof(clientState));
         windowSystem.AddWindow(this);
     }
 
@@ -103,7 +88,6 @@ public class MainWindow : Window, IMainWindow, IDisposable
     {
         if (!Visible)
         {
-            EditingPushToTalkKeybind.Value = false;
             return;
         }
 
@@ -120,80 +104,32 @@ public class MainWindow : Window, IMainWindow, IDisposable
     public void Dispose()
     {
         windowSystem.RemoveWindow(this);
-        inputDevices = null;
-        outputDevices = null;
         GC.SuppressFinalize(this);
     }
 
     private void DrawContents()
     {
-        if(ImGui.BeginTable("JoinSettings", 2))
+        using var tabs = ImRaii.TabBar("pvc-tabs");
+        if (!tabs) return;
+
+        using (var iconFont = ImRaii.PushFont(UiBuilder.IconFont))
         {
-            ImGui.TableSetupColumn("Public", ImGuiTableColumnFlags.WidthFixed, 155);
-            ImGui.TableSetupColumn("Private", ImGuiTableColumnFlags.WidthFixed, 155);
-
-            ImGui.TableNextColumn();
-            if (ImGui.Selectable("Public room", this.PublicRoom.Value))
-            {
-                this.PublicRoom.Value = true;
-            }
-            ImGui.TableNextColumn();
-            if (ImGui.Selectable("Private room", !this.PublicRoom.Value))
-            {
-                this.PublicRoom.Value = false;
-            }
-
-            ImGui.EndTable();
+            var gearIcon = FontAwesomeIcon.Cog.ToIconString();
+            ImGui.SameLine(ImGui.GetWindowContentRegionMax().X - ImGui.GetWindowContentRegionMin().X - ImGuiHelpers.GetButtonSize(gearIcon).X);
+            ImGui.SetCursorPosY(ImGui.GetCursorPosY() - 5);
+            if (ImGui.Button(gearIcon)) this.configWindowPresenter.View.Visible = true;
         }
+
+        if (ImGui.IsItemHovered()) {
+            ImGui.SetTooltip("Configuration");
+        }
+
+        DrawPublicTab();
+        DrawPrivateTab();
 
         //var indent = 10;
         //ImGui.Indent(indent);
-        if (this.PublicRoom.Value)
-        {
-            ImGui.BeginDisabled(!this.voiceRoomManager.ShouldBeInRoom);
-            ImGui.Text(string.Format("Room ID: public{0}_{1}", this.mapChangeHandler.CurrentTerritoryId, this.mapChangeHandler.CurrentMapId));
-            ImGui.EndDisabled();
 
-            ImGui.BeginDisabled(this.voiceRoomManager.ShouldBeInRoom);
-            if (ImGui.Button("Join Public Voice Room"))
-            {
-                this.joinVoiceRoom.OnNext(Unit.Default);
-            }
-            ImGui.EndDisabled();
-        }
-        else
-        {
-            string roomName = this.RoomName.Value;
-            if (ImGui.InputText("Room Name", ref roomName, 100, ImGuiInputTextFlags.AutoSelectAll))
-            {
-                this.RoomName.Value = roomName;
-            }
-            ImGui.SameLine(); HelpMarker("Leave blank to join your own room");
-
-            string roomPassword = this.RoomPassword.Value;
-            ImGui.PushItemWidth(38);
-            if (ImGui.InputText("Room Password (up to 4 digits)", ref roomPassword, 4, ImGuiInputTextFlags.CharsDecimal | ImGuiInputTextFlags.AutoSelectAll))
-            {
-                this.RoomPassword.Value = roomPassword;
-            }
-            ImGui.PopItemWidth();
-            if (!ImGui.IsItemActive())
-            {
-                while (roomPassword.Length < 4)
-                {
-                    roomPassword = "0" + roomPassword;
-                }
-                this.RoomPassword.Value = roomPassword;
-            }
-            ImGui.SameLine(); HelpMarker("Sets the password if joining your own room");
-
-            ImGui.BeginDisabled(this.voiceRoomManager.InRoom);
-            if (ImGui.Button("Join Private Voice Room"))
-            {
-                this.joinVoiceRoom.OnNext(Unit.Default);
-            }
-            ImGui.EndDisabled();
-        }
         //ImGui.Indent(-indent);
 
         ImGui.Dummy(new Vector2(0.0f, 5.0f)); // ---------------
@@ -228,215 +164,64 @@ public class MainWindow : Window, IMainWindow, IDisposable
             ImGui.Dummy(new Vector2(0.0f, 5.0f)); // ---------------
         }
 
-        if (ImGui.CollapsingHeader("Audio Devices"))
-        {
-            if (ImGui.BeginTable("AudioDevices", 2))
-            {
-                ImGui.TableSetupColumn("AudioDevicesCol1", ImGuiTableColumnFlags.WidthFixed, 80);
-                ImGui.TableSetupColumn("AudioDevicesCol2", ImGuiTableColumnFlags.WidthFixed, 230);
+    }
+    private void DrawPublicTab() {
+        using var publicTab = ImRaii.TabItem("Public room");
+        if (!publicTab) return;
 
-                ImGui.TableNextRow(); ImGui.TableNextColumn();
+        this.PublicRoom.Value = true;
+        ImGui.BeginDisabled(!this.voiceRoomManager.ShouldBeInRoom);
+        ImGui.Text(string.Format("Room ID: public{0}_{1}", this.mapChangeHandler.CurrentTerritoryId, this.mapChangeHandler.CurrentMapId));
+        ImGui.EndDisabled();
 
-                ImGui.AlignTextToFramePadding();
-                ImGui.Text("Input Device"); ImGui.TableNextColumn();
-                ImGui.SetNextItemWidth(ImGui.GetColumnWidth());
-                this.inputDevices ??= this.audioDeviceController.GetAudioRecordingDevices().ToArray();
-                var inputDeviceIndex = this.SelectedAudioInputDeviceIndex.Value + 1;
-                if (ImGui.Combo("##InputDevice", ref inputDeviceIndex, this.inputDevices, this.inputDevices.Length))
-                {
-                    this.SelectedAudioInputDeviceIndex.Value = inputDeviceIndex - 1;
-                }
-
-                ImGui.TableNextRow(); ImGui.TableNextColumn();
-                ImGui.AlignTextToFramePadding();
-                ImGui.Text("Output Device"); ImGui.TableNextColumn();
-                ImGui.SetNextItemWidth(ImGui.GetColumnWidth());
-                this.outputDevices ??= this.audioDeviceController.GetAudioPlaybackDevices().ToArray();
-                var outputDeviceIndex = this.SelectedAudioOutputDeviceIndex.Value + 1;
-                if (ImGui.Combo("##OutputDevice", ref outputDeviceIndex, this.outputDevices, this.outputDevices.Length))
-                {
-                    this.SelectedAudioOutputDeviceIndex.Value = outputDeviceIndex - 1;
-                }
-
-                ImGui.EndTable();
-            }
-
-            if (ImGui.Button(this.PlayingBackMicAudio.Value ? "Stop Mic Playback" : "Test Mic Playback"))
-            {
-                this.PlayingBackMicAudio.Value = !this.PlayingBackMicAudio.Value;
-            }
-
-            var pushToTalk = this.PushToTalk.Value;
-            if (ImGui.Checkbox("Push to Talk", ref pushToTalk))
-            {
-                this.PushToTalk.Value = pushToTalk;
-            }
-            if (pushToTalk)
-            {
-                ImGui.SameLine();
-                if (ImGui.Button(this.EditingPushToTalkKeybind.Value ? 
-                        "Recording..." :
-                        KeyCodeStrings.TranslateKeyCode(this.configuration.PushToTalkKeybind),
-                    new Vector2(5 * ImGui.GetFontSize(), 0)))
-                {
-                    this.EditingPushToTalkKeybind.Value = !this.EditingPushToTalkKeybind.Value;
-                }
-                if (ImGui.IsItemHovered() && ImGui.IsMouseReleased(ImGuiMouseButton.Right))
-                {
-                    this.clearPushToTalkKeybind.OnNext(Unit.Default);
-                }
-                ImGui.SameLine();
-                ImGui.Text("Keybind");
-            }
-            else
-            {
-                this.EditingPushToTalkKeybind.Value = false;
-            }
-
-            var suppressNoise = this.SuppressNoise.Value;
-            if (ImGui.Checkbox("Suppress Noise", ref suppressNoise))
-            {
-                this.SuppressNoise.Value = suppressNoise;
-            }
+        ImGui.BeginDisabled(this.voiceRoomManager.ShouldBeInRoom);
+        if (ImGui.Button("Join Public Voice Room")) {
+            this.joinVoiceRoom.OnNext(Unit.Default);
         }
-
-        if (ImGui.CollapsingHeader("Audio Falloff Settings"))
-        {
-            if (ImGui.BeginTable("AudioFalloffSettings", 2))
-            {
-                ImGui.TableSetupColumn("AudioFalloffSettingsCol1", ImGuiTableColumnFlags.WidthFixed, 140);
-                ImGui.TableSetupColumn("AudioFalloffSettingsCol2", ImGuiTableColumnFlags.WidthFixed, 150);
-
-                ImGui.TableNextRow(); ImGui.TableNextColumn();
-                ImGui.AlignTextToFramePadding();
-                ImGui.Text("Master Volume"); ImGui.TableNextColumn();
-                ImGui.SetNextItemWidth(ImGui.GetColumnWidth());
-                var masterVolume = this.MasterVolume.Value * 100.0f;
-                if (ImGui.SliderFloat("##MasterVolume", ref masterVolume, 0.0f, 500.0f, "%1.0f%%"))
-                {
-                    this.MasterVolume.Value = masterVolume / 100.0f;
-                }
-
-                ImGui.TableNextRow(); ImGui.TableNextColumn();
-                ImGui.AlignTextToFramePadding();
-                ImGui.Text("Falloff Type"); ImGui.TableNextColumn();
-                ImGui.SetNextItemWidth(ImGui.GetColumnWidth());
-                var falloffType = (int)this.AudioFalloffType.Value;
-                if (ImGui.Combo("##AudioFalloffType", ref falloffType, this.falloffTypes, this.falloffTypes.Length))
-                {
-                    this.AudioFalloffType.Value = (AudioFalloffModel.FalloffType)falloffType;
-                }
-
-                ImGui.TableNextRow(); ImGui.TableNextColumn();
-                ImGui.AlignTextToFramePadding();
-                ImGui.Text("Minimum Distance");
-                if (ImGui.IsItemHovered())
-                {
-                    ImGui.SetTooltip("Volume is max when below this distance, in yalms");
-                }
-                ImGui.TableNextColumn();
-                ImGui.SetNextItemWidth(ImGui.GetColumnWidth());
-                var minDistance = this.AudioFalloffMinimumDistance.Value;
-                if (ImGui.InputFloat("##AudioFalloffMinimumDistance", ref minDistance, 0.1f, 1.0f, "%.1f"))
-                {
-                    this.AudioFalloffMinimumDistance.Value = minDistance;
-                }
-
-                ImGui.TableNextRow(); ImGui.TableNextColumn();
-                ImGui.AlignTextToFramePadding();
-                ImGui.Text("Maximum Distance");
-                if (ImGui.IsItemHovered())
-                {
-                    ImGui.SetTooltip("Volume is 0 when above this distance, in yalms");
-                }
-                ImGui.TableNextColumn();
-                ImGui.SetNextItemWidth(ImGui.GetColumnWidth());
-                var maxDistance = this.AudioFalloffMaximumDistance.Value;
-                if (ImGui.InputFloat("##AudioFalloffMaximumDistance", ref maxDistance, 0.1f, 1.0f, "%.1f"))
-                {
-                    this.AudioFalloffMaximumDistance.Value = maxDistance;
-                }
-
-                ImGui.TableNextRow(); ImGui.TableNextColumn();
-                ImGui.AlignTextToFramePadding();
-                ImGui.Text("Falloff Factor");
-                if (ImGui.IsItemHovered())
-                {
-                    ImGui.SetTooltip("The higher this number, the quicker volume drops off over distance. This value is not used in linear falloff.");
-                }
-                ImGui.TableNextColumn();
-                ImGui.SetNextItemWidth(ImGui.GetColumnWidth());
-                var falloffFactor = this.AudioFalloffFactor.Value;
-                if (ImGui.InputFloat("##AudioFalloffFactor", ref falloffFactor, 0.1f, 1.0f, "%.1f"))
-                {
-                    this.AudioFalloffFactor.Value = falloffFactor;
-                }
-
-                ImGui.TableNextRow(); ImGui.TableNextColumn();
-                ImGui.AlignTextToFramePadding();
-                ImGui.Text("Mute Dead Players");
-                ImGui.TableNextColumn();
-                ImGui.SetNextItemWidth(ImGui.GetColumnWidth());
-                var muteDeadPlayers = this.MuteDeadPlayers.Value;
-                if (ImGui.Checkbox("##MuteDeadPlayers", ref muteDeadPlayers))
-                {
-                    this.MuteDeadPlayers.Value = muteDeadPlayers;
-                }
-                ImGui.SameLine();
-                var muteDeadPlayersDelayMs = this.MuteDeadPlayersDelayMs.Value;
-                ImGui.Text("Delay (ms)");
-                ImGui.SameLine(); ImGui.SetNextItemWidth(50);
-                if (ImGui.InputInt("##Delay (ms)", ref muteDeadPlayersDelayMs, 0))
-                {
-                    this.MuteDeadPlayersDelayMs.Value = muteDeadPlayersDelayMs;
-                }
-
-                ImGui.TableNextRow(); ImGui.TableNextColumn();
-                ImGui.AlignTextToFramePadding();
-                ImGui.Text("Mute Out Of Map Players");
-                ImGui.TableNextColumn();
-                ImGui.SetNextItemWidth(ImGui.GetColumnWidth());
-                ImGui.BeginDisabled(this.voiceRoomManager.InPublicRoom);
-                var muteOutOfMapPlayers = this.voiceRoomManager.InPublicRoom || this.MuteOutOfMapPlayers.Value;
-                if (ImGui.Checkbox("##MuteOutOfMapPlayers", ref muteOutOfMapPlayers))
-                {
-                    this.MuteOutOfMapPlayers.Value = muteOutOfMapPlayers;
-                }
-                ImGui.EndDisabled();
-                ImGui.SameLine(); HelpMarker("Can only disable in private rooms");
-
-                ImGui.EndTable();
-            }
-        }
-
-        if (ImGui.BeginTable("SeparatorLine1", 1, ImGuiTableFlags.BordersInnerH))
-        {
-            ImGui.TableNextRow(); ImGui.TableNextColumn(); ImGui.Spacing();
-
-            var printLogsToChat = this.PrintLogsToChat.Value;
-            if (ImGui.Checkbox("Print logs to chat", ref printLogsToChat))
-            {
-                this.PrintLogsToChat.Value = printLogsToChat;
-            }
-
-            if (printLogsToChat)
-            {
-                ImGui.SameLine();
-                var minLogLevel = this.MinimumVisibleLogLevel.Value;
-                ImGui.SetNextItemWidth(70);
-                if (ImGui.Combo("Min log level",
-                    ref minLogLevel,
-                    LogLevel.AllLoggingLevels.Select(l => l.Name).ToArray(),
-                    LogLevel.AllLoggingLevels.Count()))
-                {
-                    this.MinimumVisibleLogLevel.Value = minLogLevel;
-                }
-            }
-
-            ImGui.EndTable();
-        }
+        ImGui.EndDisabled();
     }
 
+    private void DrawPrivateTab() {
+        using var privateTab = ImRaii.TabItem("Private room");
+        if (!privateTab) return;
+
+        this.PublicRoom.Value = false;
+        ImGuiInputTextFlags readOnlyInRoom = 0;
+        if (this.voiceRoomManager.InRoom) {
+            readOnlyInRoom = ImGuiInputTextFlags.ReadOnly;
+        }
+        string roomName = this.RoomName.Value;
+        if (ImGui.InputText("Room Name", ref roomName, 100, ImGuiInputTextFlags.AutoSelectAll | readOnlyInRoom)) {
+            this.RoomName.Value = roomName;
+            var playerName = this.clientState.GetLocalPlayerFullName();
+            if (roomName.Length == 0 || roomName == playerName) {
+                privateRoomButtonText = "Create";
+            } else {
+                privateRoomButtonText = "Join";
+            }
+        }
+        ImGui.SameLine(); Util.Common.HelpMarker("Leave blank to join your own room");
+
+        string roomPassword = this.RoomPassword.Value;
+        ImGui.PushItemWidth(38);
+        if (ImGui.InputText("Room Password (up to 4 digits)", ref roomPassword, 4, ImGuiInputTextFlags.CharsDecimal | ImGuiInputTextFlags.AutoSelectAll | readOnlyInRoom)) {
+            this.RoomPassword.Value = roomPassword;
+        }
+        ImGui.PopItemWidth();
+        if (!ImGui.IsItemActive()) {
+            while (roomPassword.Length < 4) {
+                roomPassword = "0" + roomPassword;
+            }
+            this.RoomPassword.Value = roomPassword;
+        }
+        ImGui.SameLine(); Util.Common.HelpMarker("Sets the password if joining your own room");
+
+        ImGui.BeginDisabled(this.voiceRoomManager.InRoom);
+        if (ImGui.Button($"{privateRoomButtonText} Private Voice Room")) {
+            this.joinVoiceRoom.OnNext(Unit.Default);
+        }
+        ImGui.EndDisabled();
+    }
     private void DrawVoiceRoom()
     {
         ImGui.AlignTextToFramePadding();
@@ -620,18 +405,5 @@ public class MainWindow : Window, IMainWindow, IDisposable
         var resourcesDir = Path.Combine(this.pluginInterface.AssemblyLocation.Directory?.FullName!, "Resources");
         var imageName = deafened ? (self ? "headphones-deafen-self.png" : "headphones-deafen.png") : "headphones.png";
         return this.textureProvider.GetFromFile(Path.Combine(resourcesDir, imageName)).GetWrapOrDefault()?.ImGuiHandle ?? default;
-    }
-
-    private static void HelpMarker(string description)
-    {
-        ImGui.TextDisabled("(?)");
-        if (ImGui.IsItemHovered())
-        {
-            ImGui.BeginTooltip();
-            ImGui.PushTextWrapPos(ImGui.GetFontSize() * 35.0f);
-            ImGui.TextUnformatted(description);
-            ImGui.PopTextWrapPos();
-            ImGui.EndTooltip();
-        }
     }
 }

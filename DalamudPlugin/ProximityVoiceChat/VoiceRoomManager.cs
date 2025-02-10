@@ -37,7 +37,7 @@ public class VoiceRoomManager : IDisposable
 #if DEBUG
             return false;
 #else
-            return InRoom && (this.SignalingChannel?.RoomName.StartsWith("public") ?? false);
+            return InRoom && (this.SignalingChannel?.RoomName?.StartsWith("public") ?? false);
 #endif
         }
     }

@@ -194,17 +194,10 @@ public class MainWindow : Window, IPluginUIView, IDisposable
 
         ImGuiInputTextFlags readOnlyIfInRoom = this.voiceRoomManager.InRoom ? ImGuiInputTextFlags.ReadOnly : ImGuiInputTextFlags.None;
         string roomName = this.RoomName.Value;
-        string createPrivateRoomButtonText = "Join Private Voice Room";
+         
         if (ImGui.InputText("Room Name", ref roomName, 100, ImGuiInputTextFlags.AutoSelectAll | readOnlyIfInRoom)) 
         {
             this.RoomName.Value = roomName;
-            var playerName = this.clientState.GetLocalPlayerFullName();
-            // This only updates the button text when the input field is changed.
-            // If the input field is changed anywhere else, the button text may not update.
-            if (roomName.Length == 0 || roomName == playerName) 
-            {
-                createPrivateRoomButtonText = "Create Private Voice Room";
-            }
         }
         ImGui.SameLine(); Common.HelpMarker("Leave blank to join your own room");
 
@@ -225,7 +218,10 @@ public class MainWindow : Window, IPluginUIView, IDisposable
         }
         ImGui.SameLine(); Common.HelpMarker("Sets the password if joining your own room");
 
-        ImGui.BeginDisabled(this.voiceRoomManager.InRoom);
+        var playerName = this.clientState.GetLocalPlayerFullName();
+        ImGui.BeginDisabled(this.voiceRoomManager.InRoom || playerName == null);
+        var createPrivateRoomButtonText = roomName.Length == 0 || roomName == playerName ?
+            "Create Private Voice Room" : "Join Private Voice Room";
         if (ImGui.Button(createPrivateRoomButtonText))
         {
             this.joinVoiceRoom.OnNext(Unit.Default);

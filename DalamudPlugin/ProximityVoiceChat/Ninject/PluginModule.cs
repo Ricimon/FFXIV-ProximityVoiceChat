@@ -47,7 +47,7 @@ public class PluginModule : NinjectModule
 
         // Views and Presenters
         Bind<WindowSystem>().ToMethod(_ => new(PluginInitializer.Name)).InSingletonScope();
-        Bind<IPluginUIView, IMainWindow>().To<MainWindow>().InSingletonScope();
+        Bind<IPluginUIView, MainWindow>().To<MainWindow>().InSingletonScope();
         Bind<IPluginUIPresenter, MainWindowPresenter>().To<MainWindowPresenter>().InSingletonScope();
         Bind<IPluginUIView, ConfigWindow>().To<ConfigWindow>().InSingletonScope();
         Bind<IPluginUIPresenter, ConfigWindowPresenter>().To<ConfigWindowPresenter>().InSingletonScope();

@@ -13,7 +13,7 @@ public class CommandDispatcher(
     private const string commandName = "/proximityvoicechat";
     private const string commandNameAlt = "/pvc";
     private const string configCommandName = "/proximityvoicechatconfig";
-    private const string configCommandNameAlt = "/pvcconfig";
+    private const string configCommandNameAlt = "/pvcc";
 
     private readonly ICommandManager commandManager = commandManager ?? throw new ArgumentNullException(nameof(commandManager));
     private readonly MainWindowPresenter mainWindowPresenter = mainWindowPresenter ?? throw new ArgumentNullException(nameof(mainWindowPresenter));
@@ -42,7 +42,9 @@ public class CommandDispatcher(
     public void Dispose()
     {
         this.commandManager.RemoveHandler(commandName);
+        this.commandManager.RemoveHandler(commandNameAlt);
         this.commandManager.RemoveHandler(configCommandName);
+        this.commandManager.RemoveHandler(configCommandNameAlt);
     }
 
     private void OnCommand(string command, string args)

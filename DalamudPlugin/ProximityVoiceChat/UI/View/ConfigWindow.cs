@@ -24,7 +24,6 @@ public class ConfigWindow : Window, IPluginUIView, IDisposable
         set => this.visible = value;
     }
 
-
     public IReactiveProperty<int> SelectedAudioInputDeviceIndex { get; } = new ReactiveProperty<int>(-1);
     public IReactiveProperty<int> SelectedAudioOutputDeviceIndex { get; } = new ReactiveProperty<int>(-1);
     public IReactiveProperty<bool> PlayingBackMicAudio { get; } = new ReactiveProperty<bool>();
@@ -33,7 +32,6 @@ public class ConfigWindow : Window, IPluginUIView, IDisposable
     private readonly Subject<Unit> clearPushToTalkKeybind = new();
     public IObservable<Unit> ClearPushToTalkKeybind => clearPushToTalkKeybind.AsObservable();
     public IReactiveProperty<bool> SuppressNoise { get; } = new ReactiveProperty<bool>();
-
 
     public IReactiveProperty<float> MasterVolume { get; } = new ReactiveProperty<float>();
     public IReactiveProperty<AudioFalloffModel.FalloffType> AudioFalloffType { get; } = new ReactiveProperty<AudioFalloffModel.FalloffType>();
@@ -55,6 +53,7 @@ public class ConfigWindow : Window, IPluginUIView, IDisposable
     private readonly VoiceRoomManager voiceRoomManager;
     private readonly Configuration configuration;
     private readonly string[] falloffTypes;
+    private readonly string[] allLoggingLevels;
 
     // Direct application logic is being placed into this UI script because this is debug UI
     public ConfigWindow(WindowSystem windowSystem,
@@ -68,6 +67,7 @@ public class ConfigWindow : Window, IPluginUIView, IDisposable
         this.voiceRoomManager = voiceRoomManager ?? throw new ArgumentNullException(nameof(voiceRoomManager));
         this.configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         this.falloffTypes = Enum.GetNames(typeof(AudioFalloffModel.FalloffType));
+        this.allLoggingLevels = LogLevel.AllLoggingLevels.Select(l => l.Name).ToArray();
         windowSystem.AddWindow(this);
     }
 
@@ -79,7 +79,6 @@ public class ConfigWindow : Window, IPluginUIView, IDisposable
             return;
         }
 
-        var minWindowSize = new Vector2(350, 400);
         ImGui.SetNextWindowSize(new Vector2(350, 400), ImGuiCond.FirstUseEver);
         ImGui.SetNextWindowSizeConstraints(new Vector2(350, 250), new Vector2(float.MaxValue, float.MaxValue));
         if (ImGui.Begin("ProximityVoiceChat Config", ref this.visible, ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse))
@@ -102,36 +101,9 @@ public class ConfigWindow : Window, IPluginUIView, IDisposable
         using var tabs = ImRaii.TabBar("pvc-config-tabs");
         if (!tabs) return;
 
-        DrawGeneralTab();
         DrawDeviceTab();
         DrawFalloffTab();
-    }
-
-    private void DrawGeneralTab()
-    {
-        using var generalTab = ImRaii.TabItem("General");
-        if (!generalTab) return;
-
-        var printLogsToChat = this.PrintLogsToChat.Value;
-        if (ImGui.Checkbox("Print logs to chat", ref printLogsToChat))
-        {
-            this.PrintLogsToChat.Value = printLogsToChat;
-        }
-
-        if (printLogsToChat)
-        {
-            ImGui.SameLine();
-            var minLogLevel = this.MinimumVisibleLogLevel.Value;
-            ImGui.SetNextItemWidth(70);
-            if (ImGui.Combo("Min log level",
-                ref minLogLevel,
-                LogLevel.AllLoggingLevels.Select(l => l.Name).ToArray(),
-                LogLevel.AllLoggingLevels.Count()))
-            {
-                this.MinimumVisibleLogLevel.Value = minLogLevel;
-            }
-        }
-
+        DrawMiscTab();
     }
 
     private void DrawDeviceTab()
@@ -197,7 +169,8 @@ public class ConfigWindow : Window, IPluginUIView, IDisposable
             }
             ImGui.SameLine();
             ImGui.Text("Keybind");
-        } else
+        }
+        else
         {
             this.EditingPushToTalkKeybind.Value = false;
         }
@@ -299,6 +272,10 @@ public class ConfigWindow : Window, IPluginUIView, IDisposable
             ImGui.SameLine();
             var muteDeadPlayersDelayMs = this.MuteDeadPlayersDelayMs.Value;
             ImGui.Text("Delay (ms)");
+            if (ImGui.IsItemHovered())
+            {
+                ImGui.SetTooltip("Delay before a just-died player is actually muted");
+            }
             ImGui.SameLine(); ImGui.SetNextItemWidth(50);
             if (ImGui.InputInt("##Delay (ms)", ref muteDeadPlayersDelayMs, 0))
             {
@@ -317,7 +294,30 @@ public class ConfigWindow : Window, IPluginUIView, IDisposable
                 this.MuteOutOfMapPlayers.Value = muteOutOfMapPlayers;
             }
             ImGui.EndDisabled();
-            ImGui.SameLine(); Util.Common.HelpMarker("Can only disable in private rooms");
+            ImGui.SameLine(); Common.HelpMarker("Can only disable in private rooms");
         }
     }
+    private void DrawMiscTab()
+    {
+        using var miscTab = ImRaii.TabItem("Misc");
+        if (!miscTab) return;
+
+        var printLogsToChat = this.PrintLogsToChat.Value;
+        if (ImGui.Checkbox("Print logs to chat", ref printLogsToChat))
+        {
+            this.PrintLogsToChat.Value = printLogsToChat;
+        }
+
+        if (printLogsToChat)
+        {
+            ImGui.SameLine();
+            var minLogLevel = this.MinimumVisibleLogLevel.Value;
+            ImGui.SetNextItemWidth(70);
+            if (ImGui.Combo("Min log level", ref minLogLevel, allLoggingLevels, allLoggingLevels.Length))
+            {
+                this.MinimumVisibleLogLevel.Value = minLogLevel;
+            }
+        }
+    }
+
 }

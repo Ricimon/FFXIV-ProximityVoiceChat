@@ -6,32 +6,27 @@ using System.Reactive.Linq;
 using ProximityVoiceChat.Log;
 using ProximityVoiceChat.UI.View;
 using ProximityVoiceChat.Extensions;
-using WindowsInput.Events;
 using ProximityVoiceChat.Input;
 using AsyncAwaitBestPractices;
 
 namespace ProximityVoiceChat.UI.Presenter;
 
 public class MainWindowPresenter(
-    IMainWindow view,
+    MainWindow view,
     Configuration configuration,
     IClientState clientState,
-    IFramework framework,
     PushToTalkController pushToTalkController,
     VoiceRoomManager voiceRoomManager,
-    InputEventSource inputEventSource,
     ILogger logger) : IPluginUIPresenter, IDisposable
 {
     public IPluginUIView View => this.view;
 
-    private readonly IMainWindow view = view ?? throw new ArgumentNullException(nameof(view));
+    private readonly MainWindow view = view ?? throw new ArgumentNullException(nameof(view));
     private readonly Configuration configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
     private readonly IClientState clientState = clientState ?? throw new ArgumentNullException(nameof(clientState));
-    private readonly IFramework framework = framework ?? throw new ArgumentNullException(nameof(framework));
     private readonly PushToTalkController pushToTalkController = pushToTalkController ?? throw new ArgumentNullException(nameof(pushToTalkController));
     private readonly IAudioDeviceController audioDeviceController = pushToTalkController;
     private readonly VoiceRoomManager voiceRoomManager = voiceRoomManager ?? throw new ArgumentNullException(nameof(voiceRoomManager));
-    private readonly InputEventSource inputEventSource = inputEventSource ?? throw new ArgumentNullException(nameof(inputEventSource));
     private readonly ILogger logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
     private readonly CompositeDisposable disposables = [];

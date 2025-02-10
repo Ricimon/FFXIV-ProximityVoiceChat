@@ -23,7 +23,7 @@ using ProximityVoiceChat.Extensions;
 
 namespace ProximityVoiceChat.UI.View;
 
-public class MainWindow : Window, IMainWindow, IDisposable
+public class MainWindow : Window, IPluginUIView, IDisposable
 {
     // this extra bool exists for ImGui, since you can't ref a property
     private bool visible = false;
@@ -57,7 +57,6 @@ public class MainWindow : Window, IMainWindow, IDisposable
     private readonly Configuration configuration;
     private readonly ConfigWindowPresenter configWindowPresenter;
     private readonly IClientState clientState;
-    private string privateRoomButtonText = "Create";
 
     public MainWindow(
         WindowSystem windowSystem,
@@ -120,7 +119,8 @@ public class MainWindow : Window, IMainWindow, IDisposable
             if (ImGui.Button(gearIcon)) this.configWindowPresenter.View.Visible = true;
         }
 
-        if (ImGui.IsItemHovered()) {
+        if (ImGui.IsItemHovered()) 
+        {
             ImGui.SetTooltip("Configuration");
         }
 
@@ -165,63 +165,74 @@ public class MainWindow : Window, IMainWindow, IDisposable
         }
 
     }
-    private void DrawPublicTab() {
+
+    private void DrawPublicTab() 
+    {
         using var publicTab = ImRaii.TabItem("Public room");
         if (!publicTab) return;
 
         this.PublicRoom.Value = true;
+
         ImGui.BeginDisabled(!this.voiceRoomManager.ShouldBeInRoom);
         ImGui.Text(string.Format("Room ID: public{0}_{1}", this.mapChangeHandler.CurrentTerritoryId, this.mapChangeHandler.CurrentMapId));
         ImGui.EndDisabled();
 
         ImGui.BeginDisabled(this.voiceRoomManager.ShouldBeInRoom);
-        if (ImGui.Button("Join Public Voice Room")) {
+        if (ImGui.Button("Join Public Voice Room")) 
+        {
             this.joinVoiceRoom.OnNext(Unit.Default);
         }
         ImGui.EndDisabled();
     }
 
-    private void DrawPrivateTab() {
+    private void DrawPrivateTab() 
+    {
         using var privateTab = ImRaii.TabItem("Private room");
         if (!privateTab) return;
 
         this.PublicRoom.Value = false;
-        ImGuiInputTextFlags readOnlyInRoom = 0;
-        if (this.voiceRoomManager.InRoom) {
-            readOnlyInRoom = ImGuiInputTextFlags.ReadOnly;
-        }
+
+        ImGuiInputTextFlags readOnlyIfInRoom = this.voiceRoomManager.InRoom ? ImGuiInputTextFlags.ReadOnly : ImGuiInputTextFlags.None;
         string roomName = this.RoomName.Value;
-        if (ImGui.InputText("Room Name", ref roomName, 100, ImGuiInputTextFlags.AutoSelectAll | readOnlyInRoom)) {
+        string createPrivateRoomButtonText = "Join Private Voice Room";
+        if (ImGui.InputText("Room Name", ref roomName, 100, ImGuiInputTextFlags.AutoSelectAll | readOnlyIfInRoom)) 
+        {
             this.RoomName.Value = roomName;
             var playerName = this.clientState.GetLocalPlayerFullName();
-            if (roomName.Length == 0 || roomName == playerName) {
-                privateRoomButtonText = "Create";
-            } else {
-                privateRoomButtonText = "Join";
+            // This only updates the button text when the input field is changed.
+            // If the input field is changed anywhere else, the button text may not update.
+            if (roomName.Length == 0 || roomName == playerName) 
+            {
+                createPrivateRoomButtonText = "Create Private Voice Room";
             }
         }
-        ImGui.SameLine(); Util.Common.HelpMarker("Leave blank to join your own room");
+        ImGui.SameLine(); Common.HelpMarker("Leave blank to join your own room");
 
         string roomPassword = this.RoomPassword.Value;
         ImGui.PushItemWidth(38);
-        if (ImGui.InputText("Room Password (up to 4 digits)", ref roomPassword, 4, ImGuiInputTextFlags.CharsDecimal | ImGuiInputTextFlags.AutoSelectAll | readOnlyInRoom)) {
+        if (ImGui.InputText("Room Password (up to 4 digits)", ref roomPassword, 4, ImGuiInputTextFlags.CharsDecimal | ImGuiInputTextFlags.AutoSelectAll | readOnlyIfInRoom))
+        {
             this.RoomPassword.Value = roomPassword;
         }
         ImGui.PopItemWidth();
-        if (!ImGui.IsItemActive()) {
-            while (roomPassword.Length < 4) {
+        if (!ImGui.IsItemActive())
+        {
+            while (roomPassword.Length < 4)
+            {
                 roomPassword = "0" + roomPassword;
             }
             this.RoomPassword.Value = roomPassword;
         }
-        ImGui.SameLine(); Util.Common.HelpMarker("Sets the password if joining your own room");
+        ImGui.SameLine(); Common.HelpMarker("Sets the password if joining your own room");
 
         ImGui.BeginDisabled(this.voiceRoomManager.InRoom);
-        if (ImGui.Button($"{privateRoomButtonText} Private Voice Room")) {
+        if (ImGui.Button(createPrivateRoomButtonText))
+        {
             this.joinVoiceRoom.OnNext(Unit.Default);
         }
         ImGui.EndDisabled();
     }
+
     private void DrawVoiceRoom()
     {
         ImGui.AlignTextToFramePadding();

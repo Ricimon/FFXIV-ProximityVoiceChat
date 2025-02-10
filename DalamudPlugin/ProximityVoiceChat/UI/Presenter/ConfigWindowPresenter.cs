@@ -43,13 +43,15 @@ public class ConfigWindowPresenter(
         Bind(this.view.SelectedAudioOutputDeviceIndex,
             b => this.audioDeviceController.AudioPlaybackDeviceIndex = b, this.audioDeviceController.AudioPlaybackDeviceIndex);
         Bind(this.view.PlayingBackMicAudio,
-            b => {
+            b => 
+            {
                 this.audioDeviceController.PlayingBackMicAudio = b;
                 this.voiceRoomManager.PushPlayerAudioState();
             },
             this.audioDeviceController.PlayingBackMicAudio);
         Bind(this.view.PushToTalk,
-            b => {
+            b => 
+            {
                 this.configuration.PushToTalk = b;
                 this.configuration.Save();
                 this.pushToTalkController.UpdateListeners();
@@ -83,16 +85,19 @@ public class ConfigWindowPresenter(
 
     private void BindActions()
     {
-        this.view.EditingPushToTalkKeybind.Subscribe(b => {
+        this.view.EditingPushToTalkKeybind.Subscribe(b => 
+        {
             if (b)
             {
                 this.inputEventSource.SubscribeToKeyDown(OnInputKeyDown);
-            } else
+            }
+            else
             {
                 this.inputEventSource.UnsubscribeToKeyDown(OnInputKeyDown);
             }
         });
-        this.view.ClearPushToTalkKeybind.Subscribe(_ => {
+        this.view.ClearPushToTalkKeybind.Subscribe(_ => 
+        {
             this.configuration.PushToTalkKeybind = default;
             this.configuration.Save();
         });
@@ -116,7 +121,8 @@ public class ConfigWindowPresenter(
         this.configuration.Save();
         // This callback can be called from a non-framework thread, and UI values should only be modified
         // on the framework thread (or else the game can crash)
-        this.framework.Run(() => {
+        this.framework.Run(() =>
+        {
             if (this.view.EditingPushToTalkKeybind.Value)
             {
                 this.view.EditingPushToTalkKeybind.Value = false;

@@ -36,6 +36,6 @@ This adds plugins from this repo as installable plugins in the available plugins
 ## Contributing
 Please use the support discord for idea and code contribution discussion.
 
-This plugin's voice servers are self-hosted and the development team is one person, so any donations are well appreciated.
+This plugin's voice servers are self-hosted and the development team is (mostly) one person, so any donations are well appreciated.
 
 [![ko-fi](https://www.ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/ricimon)

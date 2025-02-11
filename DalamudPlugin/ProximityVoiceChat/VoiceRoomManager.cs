@@ -479,25 +479,33 @@ public class VoiceRoomManager : IDisposable
     {
         try
         {
-            if (this.WebRTCManager == null)
-            {
-                return;
-            }
-
             if (this.audioDeviceController.PlayingBackMicAudio)
             {
                 return;
             }
 
-            foreach (var peer in this.WebRTCManager.Peers.Values)
+            if (this.WebRTCManager == null || this.WebRTCManager.Peers.Count == 0)
             {
-                if (peer.PeerConnection.DataChannels.Count > 0)
+                return;
+            }
+
+            // Check that there's non-zero audio data
+            for(var i = 0; i < e.BytesRecorded; i++)
+            {
+                if (e.Buffer[i] != 0)
                 {
-                    var dataChannel = peer.PeerConnection.DataChannels[0];
-                    if (dataChannel.State == DataChannel.ChannelState.Open)
+                    foreach (var peer in this.WebRTCManager.Peers.Values)
                     {
-                        dataChannel.SendMessage(AudioDeviceController.ConvertAudioSampleToByteArray(e));
+                        if (peer.PeerConnection.DataChannels.Count > 0)
+                        {
+                            var dataChannel = peer.PeerConnection.DataChannels[0];
+                            if (dataChannel.State == DataChannel.ChannelState.Open)
+                            {
+                                dataChannel.SendMessage(AudioDeviceController.ConvertAudioSampleToByteArray(e));
+                            }
+                        }
                     }
+                    return;
                 }
             }
         }

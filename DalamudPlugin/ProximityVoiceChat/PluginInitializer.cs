@@ -30,7 +30,7 @@ public sealed class PluginInitializer : IDalamudPlugin
     [PluginService] internal static ITextureProvider TextureProvider { get; private set; } = null!;
     [PluginService] internal static IPluginLog Log { get; private set; } = null!;
 
-    private readonly IKernel kernel;
+    private readonly StandardKernel kernel;
 
     public PluginInitializer()
     {

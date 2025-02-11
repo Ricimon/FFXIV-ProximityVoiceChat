@@ -119,26 +119,9 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
             this.selfVoiceActivityDetector.HasSpeech(this.lastAudioRecordingSourceData.Buffer) :
             this.lastAudioRecordingSourceData.Buffer.Any(b => b != default));
 
-    private class PlaybackChannel : IDisposable
-    {
-        public required VolumeSampleProvider VolumeSampleProvider { get; set; }
-        public required BufferedWaveProvider BufferedWaveProvider { get; set; }
-        public WaveInEventArgs? LastSampleAdded { get; set; }
-        public int LastSampleAddedTimestampMs { get; set; }
-        public WebRtcVad VoiceActivityDetector { get; set; } = new()
-        {
-            FrameLength = WebRtcVadSharp.FrameLength.Is20ms,
-            SampleRate = WebRtcVadSharp.SampleRate.Is48kHz,
-        };
-
-        public void Dispose()
-        {
-            this.VoiceActivityDetector.Dispose();
-        }
-    }
-
     private WaveInEvent? audioRecordingSource;
     private WaveOutEvent? audioPlaybackSource;
+    private Denoiser? denoiser;
     private bool recording;
     private bool playingBack;
     private WaveInEventArgs? lastAudioRecordingSourceData;
@@ -155,7 +138,6 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
     private readonly BufferedWaveProvider micPlaybackWaveProvider;
     private readonly VolumeSampleProvider micPlaybackVolumeProvider;
     private readonly MixingSampleProvider outputSampleProvider;
-    private readonly Denoiser denoiser = new();
     private readonly float[] denoiserFloatSamples = new float[GetSampleSize(SampleRate, FrameLength, 1) / 2];
     private readonly WebRtcVad selfVoiceActivityDetector = new()
     {
@@ -214,7 +196,7 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
     {
         DisposeAudioRecordingSource();
         DisposeAudioPlaybackSource();
-        this.denoiser.Dispose();
+        this.denoiser?.Dispose();
         this.selfVoiceActivityDetector.Dispose();
         foreach(var channel in this.playbackChannels.Values)
         {
@@ -356,9 +338,9 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
         return false;
     }
 
-    private WaveInEvent GetOrCreateAudioRecordingSource()
+    private WaveInEvent? GetAudioRecordingSource(bool createIfNull)
     {
-        if (this.audioRecordingSource == null)
+        if (this.audioRecordingSource == null && createIfNull)
         {
             this.audioRecordingSource = new WaveInEvent
             {
@@ -387,9 +369,9 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
         }
     }
 
-    private WaveOutEvent GetOrCreateAudioPlaybackSource()
+    private WaveOutEvent? GetAudioPlaybackSource(bool createIfNull)
     {
-        if (this.audioPlaybackSource == null)
+        if (this.audioPlaybackSource == null && createIfNull)
         {
             this.audioPlaybackSource = new WaveOutEvent
             {
@@ -420,7 +402,7 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
     private void OnAudioSourceDataAvailable(object? sender, WaveInEventArgs e)
     {
         //this.logger.Trace("Audio data received from recording device: {0} bytes recorded, {1}", e.BytesRecorded, e.Buffer);
-        if (this.configuration.SuppressNoise)
+        if (this.configuration.SuppressNoise && this.denoiser != null)
         {
             Convert16BitToFloat(e.Buffer, this.denoiserFloatSamples);
             this.denoiser.Denoise(this.denoiserFloatSamples);
@@ -456,16 +438,25 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
         {
             if (!this.recording)
             {
-                this.logger.Debug("Starting audio recording source from device #{0}", GetOrCreateAudioRecordingSource().DeviceNumber);
-                GetOrCreateAudioRecordingSource().StartRecording();
+                this.logger.Debug("Starting audio recording source from device {0}", GetAudioRecordingSource(true)!.DeviceNumber);
+                GetAudioRecordingSource(true)!.StartRecording();
+                // We need a new denoiser here as the previous denoiser may have remaining incomplete audio data
+                // that can cause audio popping the next time it is used.
+                this.denoiser?.Dispose(); this.denoiser = null;
+                this.denoiser = new();
                 this.recording = true;
             }
         }
         else
         {
-            this.logger.Debug("Stopping audio recording source from device #{0}", GetOrCreateAudioRecordingSource().DeviceNumber);
-            GetOrCreateAudioRecordingSource().StopRecording();
+            var recordingSource = GetAudioRecordingSource(false);
+            if (recordingSource != null)
+            {
+                this.logger.Debug("Stopping audio recording source from device {0}", recordingSource.DeviceNumber);
+                recordingSource.StopRecording();
+            }
             this.lastAudioRecordingSourceData = null;
+            this.denoiser?.Dispose(); this.denoiser = null;
             this.recording = false;
         }
 
@@ -473,16 +464,20 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
         {
             if (!this.playingBack)
             {
-                this.logger.Debug("Starting audio playback source from device #{0}", GetOrCreateAudioPlaybackSource().DeviceNumber);
+                this.logger.Debug("Starting audio playback source from device {0}", GetAudioPlaybackSource(true)!.DeviceNumber);
                 ClearPlaybackBuffers(true);
-                GetOrCreateAudioPlaybackSource().Play();
+                GetAudioPlaybackSource(true)!.Play();
                 this.playingBack = true;
             }
         }
         else
         {
-            this.logger.Debug("Stopping audio playback source from device #{0}", GetOrCreateAudioPlaybackSource().DeviceNumber);
-            GetOrCreateAudioPlaybackSource().Stop();
+            var playbackSource = GetAudioPlaybackSource(false);
+            if (playbackSource != null)
+            {
+                this.logger.Debug("Stopping audio playback source from device {0}", playbackSource.DeviceNumber);
+                playbackSource.Stop();
+            }
             this.playingBack = false;
         }
     }
@@ -531,7 +526,7 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
         while (sampleIndex < input.Length)
         {
             // Math.Clamp solution found from https://github.com/mumble-voip/mumble/pull/5363
-            short outsample = (short)(Math.Clamp(input[sampleIndex] * short.MaxValue, short.MinValue, short.MaxValue));
+            short outsample = (short)Math.Clamp(input[sampleIndex] * short.MaxValue, short.MinValue, short.MaxValue);
             output[pcmIndex] = (byte)(outsample & 0xff);
             output[pcmIndex + 1] = (byte)((outsample >> 8) & 0xff);
 

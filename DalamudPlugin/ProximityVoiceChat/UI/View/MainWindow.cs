@@ -58,6 +58,8 @@ public class MainWindow : Window, IPluginUIView, IDisposable
     private readonly ConfigWindowPresenter configWindowPresenter;
     private readonly IClientState clientState;
 
+    private string? createPrivateRoomButtonText;
+
     public MainWindow(
         WindowSystem windowSystem,
         IDalamudPluginInterface pluginInterface,
@@ -87,6 +89,7 @@ public class MainWindow : Window, IPluginUIView, IDisposable
     {
         if (!Visible)
         {
+            this.createPrivateRoomButtonText = null;
             return;
         }
 
@@ -218,11 +221,14 @@ public class MainWindow : Window, IPluginUIView, IDisposable
         }
         ImGui.SameLine(); Common.HelpMarker("Sets the password if joining your own room");
 
-        var playerName = this.clientState.GetLocalPlayerFullName();
-        ImGui.BeginDisabled(this.voiceRoomManager.InRoom || playerName == null);
-        var createPrivateRoomButtonText = roomName.Length == 0 || roomName == playerName ?
-            "Create Private Voice Room" : "Join Private Voice Room";
-        if (ImGui.Button(createPrivateRoomButtonText))
+        ImGui.BeginDisabled(this.voiceRoomManager.InRoom);
+        if (this.createPrivateRoomButtonText == null || !this.voiceRoomManager.InRoom)
+        {
+            var playerName = this.clientState.GetLocalPlayerFullName();
+            this.createPrivateRoomButtonText = roomName.Length == 0 || roomName == playerName ?
+                "Create Private Voice Room" : "Join Private Voice Room";
+        }
+        if (ImGui.Button(this.createPrivateRoomButtonText))
         {
             this.joinVoiceRoom.OnNext(Unit.Default);
         }

@@ -212,7 +212,7 @@ public class WebRTCManager : IDisposable
             if (options.EnableDataChannel)
             {
                 this.logger.Debug("Creating data channel for peer {0}", peerId);
-                await peerConnection.AddDataChannelAsync(0, $"{peerId}Channel", true, false, cancellationToken);
+                await peerConnection.AddDataChannelAsync(0, $"{peerId}Channel", false, false, cancellationToken);
 
                 if (cancellationToken.IsCancellationRequested)
                 {

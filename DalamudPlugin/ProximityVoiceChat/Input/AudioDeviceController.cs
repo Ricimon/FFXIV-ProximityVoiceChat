@@ -128,9 +128,8 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
 
     private const int SampleRate = 48000; // RNNoise frequency
     private const int FrameLength = 20; // 20 ms, for max compatibility
-    // These values were hand-picked to maintain lowest latency without artifacting
-    private const int WaveOutDesiredLatency = 100;
-    private const int WaveOutNumberOfBuffers = 3;
+    private const int WaveOutDesiredLatency = 200;
+    private const int WaveOutNumberOfBuffers = 5;
 
     private readonly WaveFormat waveFormat = new(rate: 48000, bits: 16, channels: 1);
     private readonly Dictionary<string, PlaybackChannel> playbackChannels = [];

@@ -489,23 +489,15 @@ public class VoiceRoomManager : IDisposable
                 return;
             }
 
-            // Check that there's non-zero audio data
-            for(var i = 0; i < e.BytesRecorded; i++)
+            foreach (var peer in this.WebRTCManager.Peers.Values)
             {
-                if (e.Buffer[i] != 0)
+                if (peer.PeerConnection.DataChannels.Count > 0)
                 {
-                    foreach (var peer in this.WebRTCManager.Peers.Values)
+                    var dataChannel = peer.PeerConnection.DataChannels[0];
+                    if (dataChannel.State == DataChannel.ChannelState.Open)
                     {
-                        if (peer.PeerConnection.DataChannels.Count > 0)
-                        {
-                            var dataChannel = peer.PeerConnection.DataChannels[0];
-                            if (dataChannel.State == DataChannel.ChannelState.Open)
-                            {
-                                dataChannel.SendMessage(AudioDeviceController.ConvertAudioSampleToByteArray(e));
-                            }
-                        }
+                        dataChannel.SendMessage(AudioDeviceController.ConvertAudioSampleToByteArray(e));
                     }
-                    return;
                 }
             }
         }

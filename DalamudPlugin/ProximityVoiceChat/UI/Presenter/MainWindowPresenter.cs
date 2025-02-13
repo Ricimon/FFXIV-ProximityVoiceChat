@@ -91,6 +91,18 @@ public class MainWindowPresenter(
 
         this.view.LeaveVoiceRoom.Subscribe(_ => this.voiceRoomManager.LeaveVoiceRoom(false).SafeFireAndForget(ex => this.logger.Error(ex.ToString())));
 
+        this.view.SetPeerVolume.Subscribe(pv =>
+        {
+            if (pv.volume == 1.0f)
+            {
+                this.configuration.PeerVolumes.Remove(pv.playerName);
+            }
+            else
+            {
+                this.configuration.PeerVolumes[pv.playerName] = pv.volume;
+            }
+            this.configuration.Save();
+        });
     }
 
     private void Bind<T>(

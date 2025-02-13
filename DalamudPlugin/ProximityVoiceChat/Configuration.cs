@@ -2,6 +2,7 @@
 using Dalamud.Plugin;
 using NLog;
 using System;
+using System.Collections.Generic;
 using WindowsInput.Events;
 
 namespace ProximityVoiceChat
@@ -36,6 +37,8 @@ namespace ProximityVoiceChat
         public bool PrintLogsToChat { get; set; }
 
         public int MinimumVisibleLogLevel { get; set; } = LogLevel.Info.Ordinal;
+
+        public Dictionary<string, float> PeerVolumes { get; set; } = [];
 
         // the below exist just to make saving less cumbersome
         [NonSerialized]

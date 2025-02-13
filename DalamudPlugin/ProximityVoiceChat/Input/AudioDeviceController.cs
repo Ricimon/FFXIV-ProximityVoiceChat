@@ -294,6 +294,10 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
         }
         foreach (var channel in this.playbackChannels)
         {
+            if (volume != 0.0f && this.configuration.PeerVolumes.TryGetValue(channel.Key, out var peerVolume))
+            {
+                volume *= peerVolume;
+            }
             channel.Value.VolumeSampleProvider.Volume = volume;
         }
     }
@@ -303,6 +307,10 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
         if (this.Deafen || this.PlayingBackMicAudio)
         {
             volume = 0.0f;
+        }
+        if (volume != 0.0f && this.configuration.PeerVolumes.TryGetValue(channelName, out var peerVolume))
+        {
+            volume *= peerVolume;
         }
         if (this.playbackChannels.TryGetValue(channelName, out var channel))
         {

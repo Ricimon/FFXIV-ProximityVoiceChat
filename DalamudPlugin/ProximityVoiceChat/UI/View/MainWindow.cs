@@ -47,6 +47,9 @@ public class MainWindow : Window, IPluginUIView, IDisposable
     public IObservable<bool> Deafen => deafen.AsObservable();
     private readonly Subject<bool> deafen = new();
 
+    public IObservable<(string playerName, float volume)> SetPeerVolume => setPeerVolume.AsObservable();
+    private readonly Subject<(string playerName, float volume)> setPeerVolume = new();
+
     private readonly WindowSystem windowSystem;
     private readonly IDalamudPluginInterface pluginInterface;
     private readonly ITextureProvider textureProvider;
@@ -313,10 +316,74 @@ public class MainWindow : Window, IPluginUIView, IDisposable
                 }
             }
 
-            // Connectivity/activity indicator
+            // Highlight row on hover
             var drawList = ImGui.GetWindowDrawList();
             var pos = ImGui.GetCursorScreenPos();
             var h = ImGui.GetTextLineHeightWithSpacing();
+            var rowMin = new Vector2(ImGui.GetWindowPos().X, pos.Y);
+            var rowMax = new Vector2(rowMin.X + ImGui.GetWindowWidth(), pos.Y + h);
+            if (ImGui.IsMouseHoveringRect(rowMin, rowMax))
+            {
+                drawList.AddRectFilled(rowMin, rowMax, ImGui.ColorConvertFloat4ToU32(new Vector4(0.2f, 0.2f, 0.2f, 1.0f)));
+                if (ImGui.IsMouseReleased(ImGuiMouseButton.Left) || ImGui.IsMouseReleased(ImGuiMouseButton.Right))
+                {
+                    ImGui.OpenPopup($"peer-menu-{index}");
+                }
+            }
+            using (var popup = ImRaii.Popup($"peer-menu-{index}"))
+            {
+                if (popup)
+                {
+                    ImGui.Text(playerName);
+                    using var d = ImRaii.Disabled(index == 0);
+                    if (!this.configuration.PeerVolumes.TryGetValue(playerName, out var v))
+                    {
+                        v = 1.0f;
+                    }
+                    v *= 100.0f;
+                    if (ImGui.SliderFloat("Volume", ref v, 0.0f, 200.0f, "%1.0f%%"))
+                    {
+                        this.setPeerVolume.OnNext((playerName, v / 100.0f));
+                    }
+                    if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
+                    {
+                        this.setPeerVolume.OnNext((playerName, 1.0f));
+                    }
+                    if (index == 0 && ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+                    {
+                        ImGui.EndDisabled();
+                        using var t = ImRaii.Tooltip();
+                        if (t)
+                        {
+                            ImGui.Text("You can't change your own volume");
+                        }
+                        ImGui.BeginDisabled(index == 0);
+                    }
+
+                    if (index != 0)
+                    {
+                        using (var iconFont = ImRaii.PushFont(UiBuilder.IconFont))
+                        {
+                            var gearIcon = FontAwesomeIcon.Lightbulb.ToIconString();
+                            ImGui.SameLine();
+                            ImGui.SetWindowFontScale(0.75f);
+                            ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 0.25f * ImGui.GetTextLineHeight());
+                            ImGui.Text(gearIcon);
+                            ImGui.SetWindowFontScale(1.0f);
+                        }
+                        if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+                        {
+                            using var t = ImRaii.Tooltip();
+                            if (t)
+                            {
+                                ImGui.TextUnformatted("Right click to reset to 100% volume");
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Connectivity/activity indicator
             var radius = 0.3f * h;
             pos += new Vector2(0, h / 2f);
             if (index == 0)

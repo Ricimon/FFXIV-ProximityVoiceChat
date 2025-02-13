@@ -324,7 +324,7 @@ public class MainWindow : Window, IPluginUIView, IDisposable
             var rowMax = new Vector2(rowMin.X + ImGui.GetWindowWidth(), pos.Y + h);
             if (ImGui.IsMouseHoveringRect(rowMin, rowMax))
             {
-                drawList.AddRectFilled(rowMin, rowMax, ImGui.ColorConvertFloat4ToU32(new Vector4(0.2f, 0.2f, 0.2f, 1.0f)));
+                drawList.AddRectFilled(rowMin, rowMax, ImGui.ColorConvertFloat4ToU32(Vector4Colors.Gray));
                 if (ImGui.IsMouseReleased(ImGuiMouseButton.Left) || ImGui.IsMouseReleased(ImGuiMouseButton.Right))
                 {
                     ImGui.OpenPopup($"peer-menu-{index}");

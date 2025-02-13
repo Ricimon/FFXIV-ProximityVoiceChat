@@ -93,6 +93,7 @@ public class WebRTCManager : IDisposable
         Task.Run(async delegate
         {
             await onMessageSemaphore.WaitAsync();
+            Peer peer;
             try
             {
                 switch (payload.action)
@@ -112,17 +113,26 @@ public class WebRTCManager : IDisposable
                         {
                             logger.Debug("Received {0} from {1}", payload.sdp.type, message.from);
                         }
-                        await UpdateSessionDescription(peers[message.from], payload.sdp);
+                        if (peers.TryGetValue(message.from, out peer!))
+                        {
+                            await UpdateSessionDescription(peer, payload.sdp);
+                        }
                         break;
                     case "ice":
-                        UpdateIceCandidate(peers[message.from], payload.ice);
+                        if (peers.TryGetValue(message.from, out peer!))
+                        {
+                            UpdateIceCandidate(peer, payload.ice);
+                        }
                         break;
                     case "update":
                         foreach (var c in payload.connections)
                         {
                             if (message.from == c.peerId)
                             {
-                                UpdateAudioState(peers[c.peerId], c.audioState);
+                                if (peers.TryGetValue(c.peerId, out peer!))
+                                {
+                                    UpdateAudioState(peer, c.audioState);
+                                }
                             }
                             else
                             {

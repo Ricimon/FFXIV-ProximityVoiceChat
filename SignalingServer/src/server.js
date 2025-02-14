@@ -166,7 +166,7 @@ io.on("connection", (socket) => {
 
       // Try to find a player already in the map, which will correspond to the same instance for the connecting player
       if (playersInInstance) {
-        playersInInstance = playersInInstance.toString().split(",");
+        playersInInstance = playersInInstance.split(",");
         for (const p in playersInInstance) {
           if (p in connections && connections[p].roomName === roomName) {
             const foundPeer = connections[p];

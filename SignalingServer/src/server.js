@@ -80,7 +80,7 @@ ioMetrics(io);
 
 // EXPRESS HTTP ENDPOINTS
 app.get("/connections", (req, res) => {
-  res.json(Object.values(connections));
+  res.json(connections);
 });
 app.get("/rooms", (req, res) => {
   res.json(rooms);
@@ -167,7 +167,7 @@ io.on("connection", (socket) => {
       // Try to find a player already in the map, which will correspond to the same instance for the connecting player
       if (playersInInstance) {
         for (const p in playersInInstance) {
-          if (p in connections && connections[p].roomName == roomName) {
+          if (p in connections && connections[p].roomName === roomName) {
             const foundPeer = connections[p];
             logger.info(`(${socket.id}) Found player ${p} in existing room instance ${getSocketRoomName(foundPeer.roomName, foundPeer.instanceNumber)}`)
             instanceNumber = connections[p].instanceNumber;

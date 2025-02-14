@@ -26,9 +26,11 @@ public class SignalingChannel : IDisposable
     public event Action? OnDisconnected;
     public event Action? OnErrored;
 
+    private const char PlayersInInstanceDelimiter = ',';
+
     private CancellationTokenSource? disconnectCts;
     private string? roomPassword;
-    private string[]? playersInInstance;
+    private string? playersInInstance;
     private bool ready;
 
     private readonly SocketIOClient.SocketIO socket;
@@ -69,7 +71,14 @@ public class SignalingChannel : IDisposable
         this.Disconnected = false;
         this.RoomName = roomName;
         this.roomPassword = roomPassword;
-        this.playersInInstance = playersInInstance;
+        if (playersInInstance != null)
+        {
+            this.playersInInstance = string.Join(PlayersInInstanceDelimiter, playersInInstance);
+        }
+        else
+        {
+            this.playersInInstance = null;
+        }
         return this.socket.ConnectAsync(this.disconnectCts.Token);
     }
 

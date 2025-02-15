@@ -260,7 +260,7 @@ public class MainWindow : Window, IPluginUIView, IDisposable
             // this is kinda scuffed but will do for now
             if (dcMsg.Contains("incorrect password"))
             {
-                ImGui.Text("Invalid password");
+                ImGui.Text("Incorrect password");
             }
             else if (dcMsg.Contains("room does not exist"))
             {

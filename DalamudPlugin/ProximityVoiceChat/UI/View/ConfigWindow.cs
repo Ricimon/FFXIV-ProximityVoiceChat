@@ -11,6 +11,7 @@ using System.Reactive;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Linq;
+using System.Diagnostics;
 
 namespace ProximityVoiceChat.UI.View;
 
@@ -318,6 +319,31 @@ public class ConfigWindow : Window, IPluginUIView, IDisposable
                 this.MinimumVisibleLogLevel.Value = minLogLevel;
             }
         }
-    }
 
+        ImGui.Spacing();
+
+        ImGui.AlignTextToFramePadding();
+        ImGui.Text("Bugs or suggestions?");
+        ImGui.SameLine();
+        ImGui.PushStyleColor(ImGuiCol.Button, new Vector4(0.35f, 0.40f, 0.95f, 1));
+        ImGui.PushStyleColor(ImGuiCol.ButtonHovered, new Vector4(0.41f, 0.45f, 1.0f, 1));
+        ImGui.PushStyleColor(ImGuiCol.ButtonActive, new Vector4(0.32f, 0.36f, 0.88f, 1));
+        if (ImGui.Button("Discord"))
+        {
+            Process.Start(new ProcessStartInfo { FileName = "https://discord.gg/rSucAJ6A7u", UseShellExecute = true });
+        }
+        ImGui.PopStyleColor(3);
+
+        ImGui.SameLine();
+        ImGui.Text("|");
+        ImGui.SameLine();
+
+        ImGui.PushStyleColor(ImGuiCol.Button, new Vector4(1.0f, 0.39f, 0.20f, 1));
+        ImGui.PushStyleColor(ImGuiCol.ButtonHovered, new Vector4(1.0f, 0.49f, 0.30f, 1));
+        ImGui.PushStyleColor(ImGuiCol.ButtonActive, new Vector4(0.92f, 0.36f, 0.18f, 1));
+        if (ImGui.Button("Support on Ko-fi")) {
+            Process.Start(new ProcessStartInfo { FileName = "https://ko-fi.com/ricimon", UseShellExecute = true });
+        }
+        ImGui.PopStyleColor(3);
+    }
 }

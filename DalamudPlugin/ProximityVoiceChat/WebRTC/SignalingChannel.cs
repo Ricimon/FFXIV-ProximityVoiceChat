@@ -19,6 +19,7 @@ public class SignalingChannel : IDisposable
     public string PeerId { get; }
     public string PeerType { get; }
     public string? RoomName { get; private set; }
+    public string? LatestServerDisconnectMessage { get; private set; }
 
     public event Action? OnConnected;
     public event Action? OnReady;
@@ -120,6 +121,11 @@ public class SignalingChannel : IDisposable
             this.disconnectCts?.Cancel();
             return Task.CompletedTask;
         }
+    }
+
+    public void ClearLatestDisconnectMessage()
+    {
+        this.LatestServerDisconnectMessage = null;
     }
 
     public void Dispose()
@@ -248,6 +254,7 @@ public class SignalingChannel : IDisposable
             return;
         }
 
+        this.LatestServerDisconnectMessage = response.GetValue<SignalDisconnectMessage>().message;
         this.logger.Error("Signaling server disconnect: {0}", response);
 
         // This message auto disconnects the client, but does not immediately set the socket state to not Connected.

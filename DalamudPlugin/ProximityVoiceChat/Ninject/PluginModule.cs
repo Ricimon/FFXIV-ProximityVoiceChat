@@ -24,6 +24,7 @@ public class PluginModule : NinjectModule
         Bind<IClientState>().ToConstant(PluginInitializer.ClientState).InTransientScope();
         Bind<ICondition>().ToConstant(PluginInitializer.Condition).InTransientScope();
         Bind<IDutyState>().ToConstant(PluginInitializer.DutyState).InTransientScope();
+        Bind<IDataManager>().ToConstant(PluginInitializer.DataManager).InTransientScope();
         Bind<IObjectTable>().ToConstant(PluginInitializer.ObjectTable).InTransientScope();
         Bind<IGameGui>().ToConstant(PluginInitializer.GameGui).InTransientScope();
         Bind<IAddonEventManager>().ToConstant(PluginInitializer.AddonEventManager).InTransientScope();
@@ -41,7 +42,7 @@ public class PluginModule : NinjectModule
         Bind<IAudioDeviceController, PushToTalkController>().To<PushToTalkController>().InSingletonScope();
         Bind<IAudioDeviceController>().To<AudioDeviceController>().WhenInjectedInto<PushToTalkController>().InSingletonScope();
         Bind<VoiceRoomManager>().ToSelf().InSingletonScope();
-        Bind<MapChangeHandler>().ToSelf().InSingletonScope();
+        Bind<MapManager>().ToSelf().InSingletonScope();
         Bind<WebRTCDataChannelHandler>().ToSelf();
         Bind<WebRTCDataChannelHandler.IFactory>().ToFactory();
 

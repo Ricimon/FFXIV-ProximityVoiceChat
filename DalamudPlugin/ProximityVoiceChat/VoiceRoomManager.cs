@@ -79,7 +79,7 @@ public class VoiceRoomManager : IDisposable
     private readonly IFramework framework;
     private readonly IObjectTable objectTable;
     private readonly Configuration configuration;
-    private readonly MapChangeHandler mapChangeHandler;
+    private readonly MapManager mapManager;
     private readonly WebRTCDataChannelHandler.IFactory dataChannelHandlerFactory;
     private readonly IAudioDeviceController audioDeviceController;
     private readonly ILogger logger;
@@ -93,7 +93,7 @@ public class VoiceRoomManager : IDisposable
         IFramework framework,
         IObjectTable objectTable,
         Configuration configuration,
-        MapChangeHandler mapChangeHandler,
+        MapManager mapManager,
         WebRTCDataChannelHandler.IFactory dataChannelHandlerFactory,
         IAudioDeviceController audioDeviceController,
         ILogger logger)
@@ -103,7 +103,7 @@ public class VoiceRoomManager : IDisposable
         this.framework = framework;
         this.objectTable = objectTable;
         this.configuration = configuration;
-        this.mapChangeHandler = mapChangeHandler;
+        this.mapManager = mapManager;
         this.dataChannelHandlerFactory = dataChannelHandlerFactory;
         this.audioDeviceController = audioDeviceController;
         this.logger = logger;
@@ -155,10 +155,10 @@ public class VoiceRoomManager : IDisposable
             this.logger.Error("Already should be in voice room, ignoring public room join request.");
             return;
         }
-        string roomName = this.mapChangeHandler.GetCurrentMapPublicRoomName();
-        this.logger.Debug("Attempting to join public room {0}", roomName);
-        JoinVoiceRoom(roomName, string.Empty, GetOtherPlayerNamesInInstance().ToArray());
-        this.mapChangeHandler.OnMapChanged += ReconnectToCurrentMapPublicRoom;
+        string roomName = this.mapManager.GetCurrentMapPublicRoomName();
+        string[]? otherPlayers = this.mapManager.InSharedWorldMap() ? null : GetOtherPlayerNamesInInstance().ToArray();
+        JoinVoiceRoom(roomName, string.Empty, otherPlayers);
+        this.mapManager.OnMapChanged += ReconnectToCurrentMapPublicRoom;
     }
 
     public void JoinPrivateVoiceRoom(string roomName, string roomPassword)
@@ -176,7 +176,7 @@ public class VoiceRoomManager : IDisposable
         if (!autoRejoin)
         {
             this.ShouldBeInRoom = false;
-            this.mapChangeHandler.OnMapChanged -= ReconnectToCurrentMapPublicRoom;
+            this.mapManager.OnMapChanged -= ReconnectToCurrentMapPublicRoom;
         }
 
         if (!this.InRoom)
@@ -431,21 +431,24 @@ public class VoiceRoomManager : IDisposable
         });
     }
 
-    private void ReconnectToCurrentMapPublicRoom(string publicRoomName)
+    private void ReconnectToCurrentMapPublicRoom()
     {
         if (this.ShouldBeInRoom &&
-            (!this.InRoom || this.SignalingChannel?.RoomName != publicRoomName))
+            (!this.InRoom || this.SignalingChannel?.RoomName != this.mapManager.GetCurrentMapPublicRoomName()))
         {
             Task.Run(async () =>
             {
                 await this.LeaveVoiceRoom(true);
                 // Add an arbitrary delay here as loading a new map can result in a null local player name during load.
                 // This delay hopefully allows the game to populate that field before a reconnection attempt happens.
-                await Task.Delay(500);
+                // Also in some housing districts, the mapId is different after the OnTerritoryChanged event
+                await Task.Delay(1000);
                 // Accessing the object table must happen on the main thread
                 this.framework.Run(() =>
                 {
-                    this.JoinVoiceRoom(publicRoomName, string.Empty, GetOtherPlayerNamesInInstance().ToArray());
+                    var roomName = this.mapManager.GetCurrentMapPublicRoomName();
+                    string[]? otherPlayers = this.mapManager.InSharedWorldMap() ? null : GetOtherPlayerNamesInInstance().ToArray();
+                    this.JoinVoiceRoom(roomName, string.Empty, otherPlayers);
                 }).SafeFireAndForget(ex => this.logger.Error(ex.ToString()));
             });
         }

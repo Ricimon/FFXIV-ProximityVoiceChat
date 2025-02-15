@@ -69,6 +69,7 @@ public class MainWindowPresenter(
 
         this.view.JoinVoiceRoom.Subscribe(_ =>
         {
+            this.voiceRoomManager.SignalingChannel?.ClearLatestDisconnectMessage();
             if (this.view.PublicRoom.Value)
             {
                 this.voiceRoomManager.JoinPublicVoiceRoom();

@@ -56,7 +56,7 @@ public class MainWindow : Window, IPluginUIView, IDisposable
     private readonly PushToTalkController pushToTalkController;
     private readonly IAudioDeviceController audioDeviceController;
     private readonly VoiceRoomManager voiceRoomManager;
-    private readonly MapChangeHandler mapChangeHandler;
+    private readonly MapManager mapChangeHandler;
     private readonly Configuration configuration;
     private readonly ConfigWindowPresenter configWindowPresenter;
     private readonly IClientState clientState;
@@ -69,7 +69,7 @@ public class MainWindow : Window, IPluginUIView, IDisposable
         ITextureProvider textureProvider,
         PushToTalkController pushToTalkController,
         VoiceRoomManager voiceRoomManager,
-        MapChangeHandler mapChangeHandler,
+        MapManager mapChangeHandler,
         Configuration configuration,
         ConfigWindowPresenter configWindowPresenter, 
         IClientState clientState) : base(
@@ -180,8 +180,15 @@ public class MainWindow : Window, IPluginUIView, IDisposable
         this.PublicRoom.Value = true;
 
         ImGui.BeginDisabled(!this.voiceRoomManager.ShouldBeInRoom);
-        ImGui.Text(string.Format("Room ID: public{0}_{1}", this.mapChangeHandler.CurrentTerritoryId, this.mapChangeHandler.CurrentMapId));
+        ImGui.Text(string.Format("Room ID: {0}", this.mapChangeHandler.GetCurrentMapPublicRoomName()));
         ImGui.EndDisabled();
+
+#if DEBUG
+        unsafe
+        {
+            ImGui.Text(string.Format("(DEBUG) Territory type: {0}", ((TerritoryIntendedUseEnum)FFXIVClientStructs.FFXIV.Client.Game.GameMain.Instance()->CurrentTerritoryIntendedUseId).ToString()));
+        }
+#endif
 
         ImGui.BeginDisabled(this.voiceRoomManager.ShouldBeInRoom);
         if (ImGui.Button("Join Public Voice Room")) 
@@ -189,6 +196,14 @@ public class MainWindow : Window, IPluginUIView, IDisposable
             this.joinVoiceRoom.OnNext(Unit.Default);
         }
         ImGui.EndDisabled();
+
+        var dcMsg = this.voiceRoomManager.SignalingChannel?.LatestServerDisconnectMessage;
+        if (dcMsg != null)
+        {
+            ImGui.SameLine();
+            using var c = ImRaii.PushColor(ImGuiCol.Text, Vector4Colors.Red);
+            ImGui.Text("Unknown error (see /xllog)");
+        }
     }
 
     private void DrawPrivateTab() 
@@ -236,6 +251,26 @@ public class MainWindow : Window, IPluginUIView, IDisposable
             this.joinVoiceRoom.OnNext(Unit.Default);
         }
         ImGui.EndDisabled();
+
+        var dcMsg = this.voiceRoomManager.SignalingChannel?.LatestServerDisconnectMessage;
+        if (dcMsg != null)
+        {
+            ImGui.SameLine();
+            using var c = ImRaii.PushColor(ImGuiCol.Text, Vector4Colors.Red);
+            // this is kinda scuffed but will do for now
+            if (dcMsg.Contains("incorrect password"))
+            {
+                ImGui.Text("Invalid password");
+            }
+            else if (dcMsg.Contains("room does not exist"))
+            {
+                ImGui.Text("Room not found");
+            }
+            else
+            {
+                ImGui.Text("Unknown error (see /xllog)");
+            }
+        }
     }
 
     private void DrawVoiceRoom()

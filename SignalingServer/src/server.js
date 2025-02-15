@@ -134,11 +134,13 @@ io.on("connection", (socket) => {
   logger.info(`(${socket.id}) User connected`);
 
   socket.on("ready", async (peerId, peerType, roomName, roomPassword, playersInInstance) => {
+      logger.info(`(${socket.id}) Player ${peerId} ready event received with peerType ${peerType}, roomName ${roomName}, roomPassword ${roomPassword}, and playersInInstance [${playersInInstance}]`);
+
     // Make sure that the hostname is unique, if the hostname is already in connections, send an error and disconnect
     if (peerId in connections) {
-      socket.emit("serverDisconnect", {
-        message: `${peerId} is already connected to the signaling server. Please change your peer ID and try again.`,
-      });
+      const msg = `(${socket.id}) ${peerId} is already connected to the signaling server. Disconnecting.`;
+      logger.info(msg);
+      socket.emit("serverDisconnect", { message: msg });
       socket.disconnect(true);
       return;
     }
@@ -147,12 +149,12 @@ io.on("connection", (socket) => {
     if (!roomName) {
       // for debugging
       if (peerType === "admin") {
-        roomName = "public";
+        roomName = "public_Admin";
       }
       else {
-        socket.emit("serverDisconnect", {
-          message: "Room name not given, cannot connect.",
-        });
+        const msg = `(${socket.id}) Room name not given, cannot connect.`;
+        logger.info(msg);
+        socket.emit("serverDisconnect", { message: msg });
         socket.disconnect(true);
         return;
       }
@@ -162,30 +164,38 @@ io.on("connection", (socket) => {
 
     if (roomName.startsWith("public")) {
       // Public room
-      logger.info(`(${socket.id}) Public room join request for room ${roomName} received with players in instance: [${playersInInstance}]`);
-
-      // Try to find a player already in the map, which will correspond to the same instance for the connecting player
-      if (playersInInstance) {
-        for (const p of playersInInstance) {
-          if (p in connections && connections[p].roomName === roomName) {
-            const foundPeer = connections[p];
-            logger.info(`(${socket.id}) Found player ${p} in existing room instance ${getSocketRoomName(foundPeer.roomName, foundPeer.instanceNumber)}`)
-            instanceNumber = connections[p].instanceNumber;
-            break;
-          }
-        }
+      const instanceArg = roomName.split("_", 2)[1];
+      if (instanceArg === undefined || instanceArg === "Unknown") {
+        const msg = `(${socket.id}) Invalid public room name.`;
+        logger.info(msg);
+        socket.emit("serverDisconnect", { message: msg });
+        socket.disconnect(true);
       }
 
-      // If no existing players found, create a new instance for the map
-      if (instanceNumber === 0) {
-        instanceNumber = 1;
-        const room = rooms[roomName];
-        if (room) {
-          while (instanceNumber in room) {
-            instanceNumber++;
+      if (instanceArg === "Instance") {
+        // Try to find a player already in the map, which will correspond to the same instance for the connecting player
+        if (playersInInstance) {
+          for (const p of playersInInstance) {
+            if (p in connections && connections[p].roomName === roomName) {
+              const foundPeer = connections[p];
+              logger.info(`(${socket.id}) Found player ${p} in existing room instance ${getSocketRoomName(foundPeer.roomName, foundPeer.instanceNumber)}`)
+              instanceNumber = connections[p].instanceNumber;
+              break;
+            }
           }
         }
-        logger.info(`(${socket.id}) No players found in existing room instances. Creating new instance with number ${instanceNumber}`);
+
+        // If no existing players found, create a new instance for the map
+        if (instanceNumber === 0) {
+          instanceNumber = 1;
+          const room = rooms[roomName];
+          if (room) {
+            while (instanceNumber in room) {
+              instanceNumber++;
+            }
+          }
+          logger.info(`(${socket.id}) No players found in existing room instances. Creating new instance with number ${instanceNumber}`);
+        }
       }
     }
     else {
@@ -197,20 +207,18 @@ io.on("connection", (socket) => {
       } else {
         // Check that we can connect to an existing private room
         if (!(roomName in roomProperties)) {
-          logger.info(`(${socket.id}) Failed to connect to room ${roomName}, room does not exist.`);
-          socket.emit("serverDisconnect", {
-            message: `Cannot connect to room ${roomName}, room does not exist.`,
-          });
+          const msg = `(${socket.id}) Failed to join room ${roomName}, room does not exist.`;
+          logger.info(msg);
+          socket.emit("serverDisconnect", { message: msg });
           socket.disconnect(true);
           return;
         }
         
         // Check password
         if (roomPassword !== roomProperties[roomName].password) {
-          logger.info(`(${socket.id}) Failed to connect to room ${roomName}, incorrect password.`);
-          socket.emit("serverDisconnect", {
-            message: `Cannot connect to room ${roomName}, incorrect password.`,
-          });
+          const msg = `(${socket.id}) Failed to join room ${roomName}, incorrect password.`;
+          logger.info(msg);
+          socket.emit("serverDisconnect", { message: msg });
           socket.disconnect(true);
           return;
         }

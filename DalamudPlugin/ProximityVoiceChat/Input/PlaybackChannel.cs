@@ -11,6 +11,7 @@ public class PlaybackChannel : IDisposable
     public required BufferedWaveProvider BufferedWaveProvider { get; set; }
     public WaveInEventArgs? LastSampleAdded { get; set; }
     public int LastSampleAddedTimestampMs { get; set; }
+    public int BufferClearedEventTimestampMs { get; set; }
     public WebRtcVad VoiceActivityDetector { get; set; } = new()
     {
         FrameLength = FrameLength.Is20ms,

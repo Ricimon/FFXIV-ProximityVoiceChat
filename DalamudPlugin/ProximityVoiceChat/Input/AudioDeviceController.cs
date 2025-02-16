@@ -130,6 +130,7 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
     private const int FrameLength = 20; // 20 ms, for max compatibility
     private const int WaveOutDesiredLatency = 200;
     private const int WaveOutNumberOfBuffers = 5;
+    private const int MinimumBufferClearIntervalMs = 5000;
 
     private readonly WaveFormat waveFormat = new(rate: 48000, bits: 16, channels: 1);
     private readonly Dictionary<string, PlaybackChannel> playbackChannels = [];
@@ -145,6 +146,11 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
     };
     private readonly Configuration configuration;
     private readonly ILogger logger;
+
+#if DEBUG
+    // Use this to simulate lag (can only use when there's 1 other user in the voice room)
+    private readonly List<WaveInEventArgs> inputQueue = new();
+#endif
 
     public static byte[] ConvertAudioSampleToByteArray(WaveInEventArgs args)
     {
@@ -246,6 +252,7 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
         var bfp = new BufferedWaveProvider(this.waveFormat)
         {
             DiscardOnBufferOverflow = true,
+            BufferLength = this.waveFormat.AverageBytesPerSecond * 1,
         };
         var vsp = new VolumeSampleProvider(bfp.ToSampleProvider());
         this.outputSampleProvider.AddMixerInput(vsp);
@@ -269,8 +276,13 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
 
     public void AddPlaybackSample(string channelName, WaveInEventArgs sample)
     {
+//#if DEBUG
+//        AddPlaybackSampleDebug(channelName, sample, true);
+//        return;
+//#endif
         if (this.playbackChannels.TryGetValue(channelName, out var channel))
         {
+            var now = Environment.TickCount;
             // If the output device cannot read from the playback buffer as fast as it is filled,
             // then the playback buffer can get filled and introduce audio latency.
             // This can occur during high system load.
@@ -278,13 +290,63 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
             // calculated from the intended output device latency and buffer count.
             if (channel.BufferedWaveProvider.BufferedBytes + sample.BytesRecorded > this.maxPlaybackChannelBufferSize)
             {
-                channel.BufferedWaveProvider.ClearBuffer();
+                // However, don't clear too often as this can cause audio "roboting"
+                var timeSinceLastBufferClear = now - channel.BufferClearedEventTimestampMs;
+                if (timeSinceLastBufferClear > MinimumBufferClearIntervalMs)
+                {
+                    channel.BufferedWaveProvider.ClearBuffer();
+                    channel.BufferClearedEventTimestampMs = now;
+                }
             }
             channel.BufferedWaveProvider.AddSamples(sample.Buffer, 0, sample.BytesRecorded);
             channel.LastSampleAdded = sample;
-            channel.LastSampleAddedTimestampMs = Environment.TickCount;
+            channel.LastSampleAddedTimestampMs = now;
         }
     }
+
+//#if DEBUG
+//    public void AddPlaybackSampleDebug(string channelName, WaveInEventArgs sample, bool queue)
+//    {
+//        if (queue)
+//        {
+//            // Simulated latency
+//            inputQueue.Add(sample);
+//            if (inputQueue.Count > 50)
+//            {
+//                foreach (var s in inputQueue)
+//                {
+//                    AddPlaybackSampleDebug(channelName, s, false);
+//                }
+//                inputQueue.Clear();
+//            }
+//            return;
+//        }
+
+//        if (this.playbackChannels.TryGetValue(channelName, out var channel))
+//        {
+//            var now = Environment.TickCount;
+//            // If the output device cannot read from the playback buffer as fast as it is filled,
+//            // then the playback buffer can get filled and introduce audio latency.
+//            // This can occur during high system load.
+//            // To remove this latency, we ensure the playback buffer never goes above the expected buffer size,
+//            // calculated from the intended output device latency and buffer count.
+//            if (channel.BufferedWaveProvider.BufferedBytes + sample.BytesRecorded > this.maxPlaybackChannelBufferSize)
+//            {
+//                // However, don't clear too often as this can cause audio "roboting"
+//                var timeSinceLastBufferClear = now - channel.BufferClearedEventTimestampMs;
+//                if (timeSinceLastBufferClear > MinimumBufferClearIntervalMs)
+//                {
+//                    channel.BufferedWaveProvider.ClearBuffer();
+//                    channel.BufferClearedEventTimestampMs = now;
+//                }
+//            }
+//            channel.BufferedWaveProvider.AddSamples(sample.Buffer, 0, sample.BytesRecorded);
+//            this.logger.Debug("Buffer state: buffered bytes: {0}, buffer length: {1}", channel.BufferedWaveProvider.BufferedBytes, channel.BufferedWaveProvider.BufferLength);
+//            channel.LastSampleAdded = sample;
+//            channel.LastSampleAddedTimestampMs = now;
+//        }
+//    }
+//#endif
 
     public void ResetAllChannelsVolume(float volume)
     {

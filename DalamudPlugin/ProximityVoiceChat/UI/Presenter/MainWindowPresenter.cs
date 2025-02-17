@@ -1,7 +1,6 @@
 ﻿using Dalamud.Plugin.Services;
 using Reactive.Bindings;
 using System;
-using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using ProximityVoiceChat.Log;
 using ProximityVoiceChat.UI.View;
@@ -15,27 +14,18 @@ public class MainWindowPresenter(
     MainWindow view,
     Configuration configuration,
     IClientState clientState,
-    PushToTalkController pushToTalkController,
+    IAudioDeviceController audioDeviceController,
     VoiceRoomManager voiceRoomManager,
-    ILogger logger) : IPluginUIPresenter, IDisposable
+    ILogger logger) : IPluginUIPresenter
 {
     public IPluginUIView View => this.view;
 
     private readonly MainWindow view = view ?? throw new ArgumentNullException(nameof(view));
     private readonly Configuration configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
     private readonly IClientState clientState = clientState ?? throw new ArgumentNullException(nameof(clientState));
-    private readonly PushToTalkController pushToTalkController = pushToTalkController ?? throw new ArgumentNullException(nameof(pushToTalkController));
-    private readonly IAudioDeviceController audioDeviceController = pushToTalkController;
+    private readonly IAudioDeviceController audioDeviceController = audioDeviceController ?? throw new ArgumentNullException(nameof(audioDeviceController));
     private readonly VoiceRoomManager voiceRoomManager = voiceRoomManager ?? throw new ArgumentNullException(nameof(voiceRoomManager));
     private readonly ILogger logger = logger ?? throw new ArgumentNullException(nameof(logger));
-
-    private readonly CompositeDisposable disposables = [];
-
-    public void Dispose()
-    {
-        this.disposables.Dispose();
-        GC.SuppressFinalize(this);
-    }
 
     public void SetupBindings()
     {
@@ -51,7 +41,6 @@ public class MainWindowPresenter(
             s => { this.configuration.RoomName = s; this.configuration.Save(); }, this.configuration.RoomName);
         Bind(this.view.RoomPassword,
             s => { this.configuration.RoomPassword = s; this.configuration.Save(); }, this.configuration.RoomPassword);
-
     }
 
     private void BindActions()

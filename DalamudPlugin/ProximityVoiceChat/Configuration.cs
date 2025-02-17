@@ -26,6 +26,8 @@ namespace ProximityVoiceChat
 
         public bool MuteMic { get; set; }
         public bool Deafen { get; set; }
+        public KeyCode MuteMicKeybind { get; set; }
+        public KeyCode DeafenKeybind { get; set; }
 
         public float MasterVolume { get; set; } = 2.0f;
 
@@ -34,6 +36,7 @@ namespace ProximityVoiceChat
         public int MuteDeadPlayersDelayMs { get; set; } = 2000;
         public bool MuteOutOfMapPlayers { get; set; } = false;
 
+        public bool KeybindsRequireGameFocus { get; set; }
         public bool PrintLogsToChat { get; set; }
 
         public int MinimumVisibleLogLevel { get; set; } = LogLevel.Info.Ordinal;

@@ -1,13 +1,37 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using WindowsInput;
 using WindowsInput.Events;
 using WindowsInput.Events.Sources;
 
 namespace ProximityVoiceChat.Input;
 
-public class InputEventSource : IDisposable
+public class InputEventSource(Configuration configuration) : IDisposable
 {
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")]
+    private static extern int GetWindowThreadProcessId(IntPtr handle, out int processId);
+
+    private static bool IsGameFocused()
+    {
+        try
+        {
+            var foregroundWindowHandle = GetForegroundWindow();
+            if (foregroundWindowHandle == IntPtr.Zero) return false;
+
+            _ = GetWindowThreadProcessId(foregroundWindowHandle, out var activeProcessId);
+
+            return activeProcessId == Environment.ProcessId;
+        }
+        catch (EntryPointNotFoundException)
+        {
+            return true;
+        }
+    }
+
+    private readonly Configuration configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
     private readonly List<Action<KeyDown>> subscribedKeyDownActions = [];
     private readonly List<Action<KeyUp>> subscribedKeyUpActions = [];
 
@@ -75,6 +99,8 @@ public class InputEventSource : IDisposable
 
     private void OnKeyboardKeyDown(object? o, EventSourceEventArgs<KeyDown> e)
     {
+        if (this.configuration.KeybindsRequireGameFocus && !IsGameFocused()) { return; }
+
         foreach (var action in subscribedKeyDownActions)
         {
             action.Invoke(e.Data);
@@ -83,6 +109,7 @@ public class InputEventSource : IDisposable
 
     private void OnKeyboardKeyUp(object? o, EventSourceEventArgs<KeyUp> e)
     {
+        // Always listen to key ups, since these are necessary to cancel hold actions
         foreach (var action in subscribedKeyUpActions)
         {
             action.Invoke(e.Data);
@@ -91,6 +118,8 @@ public class InputEventSource : IDisposable
 
     private void OnMouseButtonDown(object? o, EventSourceEventArgs<ButtonDown> e)
     {
+        if (this.configuration.KeybindsRequireGameFocus && !IsGameFocused()) { return; }
+
         // Only accept middle mouse, mouse4, and mouse5
         KeyCode keyCode;
         if (e.Data.Button == ButtonCode.XButton1)
@@ -118,6 +147,7 @@ public class InputEventSource : IDisposable
 
     private void OnMouseButtonUp(object? o, EventSourceEventArgs<ButtonUp> e)
     {
+        // Always listen to key ups, since these are necessary to cancel hold actions
         // Only accept middle mouse, mouse4, and mouse5
         KeyCode keyCode;
         if (e.Data.Button == ButtonCode.XButton1)

@@ -7,11 +7,11 @@ using ProximityVoiceChat.Log;
 using Reactive.Bindings;
 using System;
 using System.Numerics;
-using System.Reactive;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Linq;
 using System.Diagnostics;
+using WindowsInput.Events;
 
 namespace ProximityVoiceChat.UI.View;
 
@@ -29,10 +29,10 @@ public class ConfigWindow : Window, IPluginUIView, IDisposable
     public IReactiveProperty<int> SelectedAudioOutputDeviceIndex { get; } = new ReactiveProperty<int>(-1);
     public IReactiveProperty<bool> PlayingBackMicAudio { get; } = new ReactiveProperty<bool>();
     public IReactiveProperty<bool> PushToTalk { get; } = new ReactiveProperty<bool>();
-    public IReactiveProperty<bool> EditingPushToTalkKeybind { get; } = new ReactiveProperty<bool>();
-    private readonly Subject<Unit> clearPushToTalkKeybind = new();
-    public IObservable<Unit> ClearPushToTalkKeybind => clearPushToTalkKeybind.AsObservable();
     public IReactiveProperty<bool> SuppressNoise { get; } = new ReactiveProperty<bool>();
+    public IReactiveProperty<Keybind> KeybindBeingEdited { get; } = new ReactiveProperty<Keybind>();
+    public IObservable<Keybind> ClearKeybind => clearKeybind.AsObservable();
+    private readonly Subject<Keybind> clearKeybind = new();
 
     public IReactiveProperty<float> MasterVolume { get; } = new ReactiveProperty<float>();
     public IReactiveProperty<AudioFalloffModel.FalloffType> AudioFalloffType { get; } = new ReactiveProperty<AudioFalloffModel.FalloffType>();
@@ -43,6 +43,7 @@ public class ConfigWindow : Window, IPluginUIView, IDisposable
     public IReactiveProperty<int> MuteDeadPlayersDelayMs { get; } = new ReactiveProperty<int>();
     public IReactiveProperty<bool> MuteOutOfMapPlayers { get; } = new ReactiveProperty<bool>();
 
+    public IReactiveProperty<bool> KeybindsRequireGameFocus { get; } = new ReactiveProperty<bool>();
     public IReactiveProperty<bool> PrintLogsToChat { get; } = new ReactiveProperty<bool>();
     public IReactiveProperty<int> MinimumVisibleLogLevel { get; } = new ReactiveProperty<int>();
 
@@ -76,7 +77,7 @@ public class ConfigWindow : Window, IPluginUIView, IDisposable
     {
         if (!Visible)
         {
-            EditingPushToTalkKeybind.Value = false;
+            KeybindBeingEdited.Value = Keybind.None;
             return;
         }
 
@@ -157,23 +158,11 @@ public class ConfigWindow : Window, IPluginUIView, IDisposable
         if (pushToTalk)
         {
             ImGui.SameLine();
-            if (ImGui.Button(this.EditingPushToTalkKeybind.Value ?
-                    "Recording..." :
-                    KeyCodeStrings.TranslateKeyCode(this.configuration.PushToTalkKeybind),
-                new Vector2(5 * ImGui.GetFontSize(), 0)))
-            {
-                this.EditingPushToTalkKeybind.Value = !this.EditingPushToTalkKeybind.Value;
-            }
-            if (ImGui.IsItemHovered() && ImGui.IsMouseReleased(ImGuiMouseButton.Right))
-            {
-                this.clearPushToTalkKeybind.OnNext(Unit.Default);
-            }
-            ImGui.SameLine();
-            ImGui.Text("Keybind");
+            DrawKeybindEdit(Keybind.PushToTalk, this.configuration.PushToTalkKeybind, "Keybind");
         }
-        else
+        else if (this.KeybindBeingEdited.Value == Keybind.PushToTalk)
         {
-            this.EditingPushToTalkKeybind.Value = false;
+            this.KeybindBeingEdited.Value = Keybind.None;
         }
 
         var suppressNoise = this.SuppressNoise.Value;
@@ -181,6 +170,30 @@ public class ConfigWindow : Window, IPluginUIView, IDisposable
         {
             this.SuppressNoise.Value = suppressNoise;
         }
+
+        DrawKeybindEdit(Keybind.MuteMic, this.configuration.MuteMicKeybind, "Mute Microphone Keybind");
+        DrawKeybindEdit(Keybind.Deafen, this.configuration.DeafenKeybind, "Deafen Keybind");
+    }
+
+    private void DrawKeybindEdit(Keybind keybind, KeyCode currentBinding, string label)
+    {
+        using var id = ImRaii.PushId($"{keybind} Keybind");
+        {
+            if (ImGui.Button(this.KeybindBeingEdited.Value == keybind ?
+                    "Recording..." :
+                    KeyCodeStrings.TranslateKeyCode(currentBinding),
+                new Vector2(5 * ImGui.GetFontSize(), 0)))
+            {
+                this.KeybindBeingEdited.Value = this.KeybindBeingEdited.Value != keybind ?
+                    keybind : Keybind.None;
+            }
+        }
+        if (ImGui.IsItemHovered() && ImGui.IsMouseReleased(ImGuiMouseButton.Right))
+        {
+            this.clearKeybind.OnNext(keybind);
+        }
+        ImGui.SameLine();
+        ImGui.Text(label);
     }
 
     private void DrawFalloffTab()
@@ -302,6 +315,12 @@ public class ConfigWindow : Window, IPluginUIView, IDisposable
     {
         using var miscTab = ImRaii.TabItem("Misc");
         if (!miscTab) return;
+
+        var keybindsRequireGameFocus = this.KeybindsRequireGameFocus.Value;
+        if (ImGui.Checkbox("Keybinds require game focus", ref keybindsRequireGameFocus))
+        {
+            this.KeybindsRequireGameFocus.Value = keybindsRequireGameFocus;
+        }
 
         var printLogsToChat = this.PrintLogsToChat.Value;
         if (ImGui.Checkbox("Print logs to chat", ref printLogsToChat))

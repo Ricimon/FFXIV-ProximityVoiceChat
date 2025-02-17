@@ -1,6 +1,7 @@
 ﻿using System;
 using Dalamud.Plugin.Services;
 using ProximityVoiceChat.Input;
+using ProximityVoiceChat.Log;
 using ProximityVoiceChat.UI.View;
 using Reactive.Bindings;
 using WindowsInput.Events;
@@ -13,7 +14,9 @@ public class ConfigWindowPresenter(
     IFramework framework,
     PushToTalkController pushToTalkController,
     VoiceRoomManager voiceRoomManager,
-    InputEventSource inputEventSource) : IPluginUIPresenter, IDisposable
+    InputEventSource inputEventSource,
+    InputManager inputManager,
+    ILogger logger) : IPluginUIPresenter, IDisposable
 {
     public IPluginUIView View => this.view;
 
@@ -24,6 +27,10 @@ public class ConfigWindowPresenter(
     private readonly IAudioDeviceController audioDeviceController = pushToTalkController;
     private readonly VoiceRoomManager voiceRoomManager = voiceRoomManager ?? throw new ArgumentNullException(nameof(voiceRoomManager));
     private readonly InputEventSource inputEventSource = inputEventSource ?? throw new ArgumentNullException(nameof(inputEventSource));
+    private readonly InputManager inputManager = inputManager ?? throw new ArgumentNullException(nameof(inputManager));
+    private readonly ILogger logger = logger ?? throw new ArgumentNullException(nameof(logger));
+
+    private bool keyDownListenerSubscribed;
 
     public void Dispose()
     {
@@ -77,6 +84,8 @@ public class ConfigWindowPresenter(
         Bind(this.view.MuteOutOfMapPlayers,
             b => { this.configuration.MuteOutOfMapPlayers = b; this.configuration.Save(); }, this.configuration.MuteOutOfMapPlayers);
 
+        Bind(this.view.KeybindsRequireGameFocus,
+            b => { this.configuration.KeybindsRequireGameFocus = b; this.configuration.Save(); }, this.configuration.KeybindsRequireGameFocus);
         Bind(this.view.PrintLogsToChat,
             b => { this.configuration.PrintLogsToChat = b; this.configuration.Save(); }, this.configuration.PrintLogsToChat);
         Bind(this.view.MinimumVisibleLogLevel,
@@ -85,21 +94,37 @@ public class ConfigWindowPresenter(
 
     private void BindActions()
     {
-        this.view.EditingPushToTalkKeybind.Subscribe(b => 
+        this.view.KeybindBeingEdited.Subscribe(k => 
         {
-            if (b)
+            if (k != Keybind.None && !this.keyDownListenerSubscribed)
             {
                 this.inputEventSource.SubscribeToKeyDown(OnInputKeyDown);
+                this.keyDownListenerSubscribed = true;
             }
-            else
+            else if (k == Keybind.None && this.keyDownListenerSubscribed)
             {
                 this.inputEventSource.UnsubscribeToKeyDown(OnInputKeyDown);
+                this.keyDownListenerSubscribed = false;
             }
         });
-        this.view.ClearPushToTalkKeybind.Subscribe(_ => 
+        this.view.ClearKeybind.Subscribe(k => 
         {
-            this.configuration.PushToTalkKeybind = default;
+            switch(k)
+            {
+                case Keybind.PushToTalk:
+                    this.configuration.PushToTalkKeybind = default;
+                    break;
+                case Keybind.MuteMic:
+                    this.configuration.MuteMicKeybind = default;
+                    break;
+                case Keybind.Deafen:
+                    this.configuration.DeafenKeybind = default;
+                    break;
+                default:
+                    return;
+            }
             this.configuration.Save();
+            this.inputManager.UpdateListeners();
         });
     }
 
@@ -117,16 +142,30 @@ public class ConfigWindowPresenter(
 
     private void OnInputKeyDown(KeyDown k)
     {
-        this.configuration.PushToTalkKeybind = k.Key;
-        this.configuration.Save();
         // This callback can be called from a non-framework thread, and UI values should only be modified
         // on the framework thread (or else the game can crash)
         this.framework.Run(() =>
         {
-            if (this.view.EditingPushToTalkKeybind.Value)
+            var editedKeybind = this.view.KeybindBeingEdited.Value;
+            this.view.KeybindBeingEdited.Value = Keybind.None;
+
+            switch (editedKeybind)
             {
-                this.view.EditingPushToTalkKeybind.Value = false;
+                case Keybind.PushToTalk:
+                    this.configuration.PushToTalkKeybind = k.Key;
+                    break;
+                case Keybind.MuteMic:
+                    this.configuration.MuteMicKeybind = k.Key;
+                    break;
+                case Keybind.Deafen:
+                    this.configuration.DeafenKeybind = k.Key;
+                    break;
+                default:
+                    return;
             }
+            this.configuration.Save();
+            this.inputManager.UpdateListeners();
         });
+
     }
 }

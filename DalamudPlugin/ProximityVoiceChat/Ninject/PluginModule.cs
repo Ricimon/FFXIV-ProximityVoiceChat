@@ -39,6 +39,7 @@ public class PluginModule : NinjectModule
         Bind<IDalamudHook>().To<CommandDispatcher>().InSingletonScope();
         Bind<Configuration>().ToMethod(GetConfiguration).InSingletonScope();
         Bind<InputEventSource>().ToSelf().InSingletonScope();
+        Bind<InputManager>().ToSelf().InSingletonScope();
         Bind<IAudioDeviceController, PushToTalkController>().To<PushToTalkController>().InSingletonScope();
         Bind<IAudioDeviceController>().To<AudioDeviceController>().WhenInjectedInto<PushToTalkController>().InSingletonScope();
         Bind<VoiceRoomManager>().ToSelf().InSingletonScope();

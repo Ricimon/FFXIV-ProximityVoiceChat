@@ -147,7 +147,7 @@ public class MainWindow : Window, IPluginUIView, IDisposable
         if (ImGui.IsItemHovered())
         {
             ImGui.BeginTooltip();
-            ImGui.Text(this.audioDeviceController.MuteMic ? "Turn On Microphone" : "Turn Off Microphone");
+            ImGui.Text(this.audioDeviceController.MuteMic ? "Unmute Microphone" : "Mute Microphone");
             ImGui.EndTooltip();
         }
         ImGui.SameLine();

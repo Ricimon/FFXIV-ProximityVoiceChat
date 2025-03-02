@@ -30,6 +30,7 @@ This adds plugins from this repo as installable plugins in the available plugins
 - Search for the **ProximityVoiceChat** plugin and click **install**.
 
 ## Planned Features
+- Spatial audio
 - Host-enforced audio falloff settings
 
 ## Contributing

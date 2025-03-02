@@ -30,7 +30,6 @@ This adds plugins from this repo as installable plugins in the available plugins
 - Search for the **ProximityVoiceChat** plugin and click **install**.
 
 ## Planned Features
-- Room join/leave sounds
 - Host-enforced audio falloff settings
 
 ## Contributing

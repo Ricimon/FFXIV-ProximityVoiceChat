@@ -36,6 +36,7 @@ namespace ProximityVoiceChat
         public int MuteDeadPlayersDelayMs { get; set; } = 2000;
         public bool MuteOutOfMapPlayers { get; set; } = false;
 
+        public bool PlayRoomJoinAndLeaveSounds { get; set; } = true;
         public bool KeybindsRequireGameFocus { get; set; }
         public bool PrintLogsToChat { get; set; }
 

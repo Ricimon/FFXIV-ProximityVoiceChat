@@ -43,6 +43,7 @@ public class ConfigWindow : Window, IPluginUIView, IDisposable
     public IReactiveProperty<int> MuteDeadPlayersDelayMs { get; } = new ReactiveProperty<int>();
     public IReactiveProperty<bool> MuteOutOfMapPlayers { get; } = new ReactiveProperty<bool>();
 
+    public IReactiveProperty<bool> PlayRoomJoinAndLeaveSounds { get; } = new ReactiveProperty<bool>();
     public IReactiveProperty<bool> KeybindsRequireGameFocus { get; } = new ReactiveProperty<bool>();
     public IReactiveProperty<bool> PrintLogsToChat { get; } = new ReactiveProperty<bool>();
     public IReactiveProperty<int> MinimumVisibleLogLevel { get; } = new ReactiveProperty<int>();
@@ -315,6 +316,12 @@ public class ConfigWindow : Window, IPluginUIView, IDisposable
     {
         using var miscTab = ImRaii.TabItem("Misc");
         if (!miscTab) return;
+
+        var playRoomJoinAndLeaveSounds = this.PlayRoomJoinAndLeaveSounds.Value;
+        if (ImGui.Checkbox("Play room join and leave sounds", ref playRoomJoinAndLeaveSounds))
+        {
+            this.PlayRoomJoinAndLeaveSounds.Value = playRoomJoinAndLeaveSounds;
+        }
 
         var keybindsRequireGameFocus = this.KeybindsRequireGameFocus.Value;
         if (ImGui.Checkbox("Keybinds require game focus", ref keybindsRequireGameFocus))

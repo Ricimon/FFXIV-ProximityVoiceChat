@@ -2,6 +2,7 @@
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
 using ProximityVoiceChat.Log;
@@ -125,6 +126,8 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
     private bool recording;
     private bool playingBack;
     private WaveInEventArgs? lastAudioRecordingSourceData;
+    private CachedSoundSampleProvider? currentSfx;
+    private TaskCompletionSource? currentSfxTcs;
 
     private const int SampleRate = 48000; // RNNoise frequency
     private const int FrameLength = 20; // 20 ms, for max compatibility
@@ -195,12 +198,15 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
         {
             ReadFully = true,
         };
+        this.outputSampleProvider.MixerInputEnded += OnMixerInputEnded;
     }
 
     public void Dispose()
     {
         DisposeAudioRecordingSource();
         DisposeAudioPlaybackSource();
+        this.outputSampleProvider.MixerInputEnded -= OnMixerInputEnded;
+        this.currentSfxTcs?.TrySetCanceled();
         this.denoiser?.Dispose();
         this.selfVoiceActivityDetector.Dispose();
         foreach(var channel in this.playbackChannels.Values)
@@ -407,6 +413,20 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
         return false;
     }
 
+    /// <returns>A Task that completes when the sound fully finished playing, and cancels if the sound is interrupted.</returns>
+    public Task PlaySfx(CachedSound sound)
+    {
+        if (this.currentSfx != null)
+        {
+            this.outputSampleProvider.RemoveMixerInput(this.currentSfx);
+            this.currentSfxTcs?.TrySetCanceled();
+        }
+        this.currentSfx = new CachedSoundSampleProvider(sound);
+        this.outputSampleProvider.AddMixerInput(this.currentSfx);
+        this.currentSfxTcs = new TaskCompletionSource();
+        return this.currentSfxTcs.Task;
+    }
+
     private WaveInEvent? GetAudioRecordingSource(bool createIfNull)
     {
         if (this.audioRecordingSource == null && createIfNull)
@@ -465,6 +485,16 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
         {
             this.audioPlaybackSource.Dispose();
             this.audioPlaybackSource = null;
+        }
+    }
+
+    private void OnMixerInputEnded(object? sender, SampleProviderEventArgs e)
+    {
+        if (e.SampleProvider == this.currentSfx)
+        {
+            this.currentSfxTcs?.TrySetResult();
+            this.currentSfx = null;
+            this.currentSfxTcs = null;
         }
     }
 
@@ -546,6 +576,13 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
             {
                 this.logger.Debug("Stopping audio playback source from device {0}", playbackSource.DeviceNumber);
                 playbackSource.Stop();
+            }
+            if (this.currentSfx != null)
+            {
+                this.outputSampleProvider.RemoveMixerInput(this.currentSfx);
+                this.currentSfxTcs?.TrySetCanceled();
+                this.currentSfx = null;
+                this.currentSfxTcs = null;
             }
             this.playingBack = false;
         }

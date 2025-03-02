@@ -1,6 +1,7 @@
 ﻿using NAudio.Wave;
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace ProximityVoiceChat.Input;
 
@@ -35,4 +36,6 @@ public interface IAudioDeviceController
     void SetChannelVolume(string channelName, float volume);
 
     bool ChannelHasActivity(string channelName);
+
+    Task PlaySfx(CachedSound sound);
 }

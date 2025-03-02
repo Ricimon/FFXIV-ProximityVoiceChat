@@ -16,6 +16,12 @@ public class WebRTCManager : IDisposable
 {
     public IReadOnlyDictionary<string, Peer> Peers => peers;
 
+    /// <summary>
+    /// Args are peer, isPolite
+    /// </summary>
+    public Action<Peer, bool>? OnPeerAdded;
+    public Action<Peer>? OnPeerRemoved;
+
     private CancellationTokenSource? disconnectCts;
 
     private readonly string ourPeerId;
@@ -188,7 +194,7 @@ public class WebRTCManager : IDisposable
         {
             // Add peer to the object of peers
             var peerConnection = new PeerConnection();
-            peers.TryAdd(peerId, new Peer
+            var peer = new Peer
             {
                 PeerId = peerId,
                 PeerType = peerType,
@@ -198,8 +204,12 @@ public class WebRTCManager : IDisposable
                 IgnoreOffer = false,
                 IsSettingRemoteAnswerPending = false,
                 CanTrickleIceCandidates = canTrickleIceCandidates,
-            });
-            this.logger.Debug("Added {0} as a peer.", peerId);
+            };
+            if (peers.TryAdd(peerId, peer))
+            {
+                this.logger.Debug("Added {0} as a peer.", peerId);
+                this.OnPeerAdded?.Invoke(peer, polite);
+            }
         }
     }
 
@@ -395,6 +405,7 @@ public class WebRTCManager : IDisposable
             {
                 logger.Debug("Connection with {0} has been removed", peer.PeerId);
             }
+            this.OnPeerRemoved?.Invoke(peer);
             return true;
         }
         return false;

@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using ProximityVoiceChat.Log;
 using WindowsInput.Events;
+using System.Threading.Tasks;
 
 namespace ProximityVoiceChat.Input;
 
@@ -124,6 +125,11 @@ public class PushToTalkController : IAudioDeviceController
     void IAudioDeviceController.SetChannelVolume(string channelName, float volume)
     {
         this.baseAudioDeviceController.SetChannelVolume(channelName, volume);
+    }
+
+    Task IAudioDeviceController.PlaySfx(CachedSound sound)
+    {
+        return this.baseAudioDeviceController.PlaySfx(sound);
     }
 
     public void UpdateListeners()

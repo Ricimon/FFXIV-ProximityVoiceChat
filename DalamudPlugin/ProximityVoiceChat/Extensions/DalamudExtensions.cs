@@ -1,5 +1,7 @@
 ﻿using Dalamud.Game.ClientState.Objects.SubKinds;
+using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
+using System.IO;
 
 namespace ProximityVoiceChat.Extensions;
 
@@ -25,5 +27,11 @@ public static class DalamudExtensions
             return null;
         }
         return GetPlayerFullName(localPlayer);
+    }
+
+    public static string GetResourcePath(this IDalamudPluginInterface pluginInterface, string fileName)
+    {
+        var resourcesDir = Path.Combine(pluginInterface.AssemblyLocation.Directory?.FullName!, "Resources");
+        return Path.Combine(resourcesDir, fileName);
     }
 }

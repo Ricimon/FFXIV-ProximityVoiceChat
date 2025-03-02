@@ -84,6 +84,8 @@ public class ConfigWindowPresenter(
         Bind(this.view.MuteOutOfMapPlayers,
             b => { this.configuration.MuteOutOfMapPlayers = b; this.configuration.Save(); }, this.configuration.MuteOutOfMapPlayers);
 
+        Bind(this.view.PlayRoomJoinAndLeaveSounds,
+            b => { this.configuration.PlayRoomJoinAndLeaveSounds = b; this.configuration.Save(); }, this.configuration.PlayRoomJoinAndLeaveSounds);
         Bind(this.view.KeybindsRequireGameFocus,
             b => { this.configuration.KeybindsRequireGameFocus = b; this.configuration.Save(); }, this.configuration.KeybindsRequireGameFocus);
         Bind(this.view.PrintLogsToChat,

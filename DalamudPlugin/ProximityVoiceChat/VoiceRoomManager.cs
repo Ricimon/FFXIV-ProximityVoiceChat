@@ -85,6 +85,9 @@ public class VoiceRoomManager : IDisposable
     private readonly ILogger logger;
 
     private readonly LoadConfig loadConfig;
+    private readonly CachedSound roomJoinSound;
+    private readonly CachedSound roomSelfLeaveSound;
+    private readonly CachedSound roomOtherLeaveSound;
     private readonly PeriodicTimer volumeUpdateTimer = new(TimeSpan.FromMilliseconds(100));
     private readonly SemaphoreSlim frameworkThreadSemaphore = new(1, 1);
 
@@ -124,6 +127,10 @@ public class VoiceRoomManager : IDisposable
             logger.Warn("Could not load config file at {0}", configPath);
             this.loadConfig = new();
         }
+
+        this.roomJoinSound = new(this.pluginInterface.GetResourcePath("join.wav"));
+        this.roomOtherLeaveSound = new(this.pluginInterface.GetResourcePath("other_leave.wav"));
+        this.roomSelfLeaveSound = new(this.pluginInterface.GetResourcePath("self_leave.wav"));
 
         Task.Run(async delegate
         {
@@ -190,8 +197,29 @@ public class VoiceRoomManager : IDisposable
         this.localPlayerFullName = null;
 
         this.audioDeviceController.AudioRecordingIsRequested = false;
-        this.audioDeviceController.AudioPlaybackIsRequested = false;
         this.audioDeviceController.OnAudioRecordingSourceDataAvailable -= SendAudioSampleToAllPeers;
+
+        if (this.WebRTCManager != null)
+        {
+            this.WebRTCManager.OnPeerAdded -= OnPeerAdded;
+            this.WebRTCManager.OnPeerRemoved -= OnPeerRemoved;
+            this.WebRTCManager.Dispose();
+            this.WebRTCManager = null;
+        }
+
+        if (this.configuration.PlayRoomJoinAndLeaveSounds)
+        {
+            this.audioDeviceController.PlaySfx(this.roomSelfLeaveSound)
+                .ContinueWith(task => this.audioDeviceController.AudioPlaybackIsRequested = false, TaskContinuationOptions.OnlyOnRanToCompletion)
+                .SafeFireAndForget(ex =>
+                {
+                    if (ex is not TaskCanceledException) { this.logger.Error(ex.ToString()); }
+                });
+        }
+        else
+        {
+            this.audioDeviceController.AudioPlaybackIsRequested = false;
+        }
 
         if (this.SignalingChannel != null)
         {
@@ -406,20 +434,25 @@ public class VoiceRoomManager : IDisposable
             this.loadConfig.signalingServerToken,
             this.logger,
             true);
-        var options = new WebRTCOptions()
+        if (this.WebRTCManager == null)
         {
-            EnableDataChannel = true,
-            DataChannelHandlerFactory = this.dataChannelHandlerFactory,
-            TurnServerUrlOverride = this.loadConfig.turnServerUrlOverride,
-            TurnServerUsernameOverride = this.loadConfig.turnServerUsernameOverride,
-            TurnServerPasswordOverride = this.loadConfig.turnServerPasswordOverride,
-        };
-        this.WebRTCManager ??= new WebRTCManager(playerName, PeerType, this.SignalingChannel, options, this.logger, true);
+            var options = new WebRTCOptions()
+            {
+                EnableDataChannel = true,
+                DataChannelHandlerFactory = this.dataChannelHandlerFactory,
+                TurnServerUrlOverride = this.loadConfig.turnServerUrlOverride,
+                TurnServerUsernameOverride = this.loadConfig.turnServerUsernameOverride,
+                TurnServerPasswordOverride = this.loadConfig.turnServerPasswordOverride,
+            };
+            this.WebRTCManager = new WebRTCManager(playerName, PeerType, this.SignalingChannel, options, this.logger, true);
+        }
 
         this.SignalingChannel.OnConnected += OnSignalingServerConnected;
         this.SignalingChannel.OnReady += OnSignalingServerReady;
         this.SignalingChannel.OnDisconnected += OnSignalingServerDisconnected;
         this.SignalingChannel.OnErrored += OnSignalingServerErrored;
+        this.WebRTCManager.OnPeerAdded += OnPeerAdded;
+        this.WebRTCManager.OnPeerRemoved += OnPeerRemoved;
 
         this.logger.Debug("Attempting to connect to signaling channel.");
         this.SignalingChannel.ConnectAsync(roomName, roomPassword, playersInInstance).SafeFireAndForget(ex =>
@@ -459,6 +492,10 @@ public class VoiceRoomManager : IDisposable
         this.audioDeviceController.AudioRecordingIsRequested = true;
         this.audioDeviceController.AudioPlaybackIsRequested = true;
         this.audioDeviceController.OnAudioRecordingSourceDataAvailable += SendAudioSampleToAllPeers;
+        if (this.configuration.PlayRoomJoinAndLeaveSounds)
+        {
+            this.audioDeviceController.PlaySfx(this.roomJoinSound);
+        }
     }
 
     private void OnSignalingServerReady()
@@ -476,6 +513,24 @@ public class VoiceRoomManager : IDisposable
         LeaveVoiceRoom(false).SafeFireAndForget(ex => this.logger.Error(ex.ToString()));
         this.SignalingChannel?.Dispose();
         this.SignalingChannel = null;
+    }
+
+    private void OnPeerAdded(Peer peer, bool isPolite)
+    {
+        // When joining an occupied room, creating connections to peers already in the room is not polite.
+        // Newly joining peers are polite, so play the room join sound for them
+        if (isPolite && this.configuration.PlayRoomJoinAndLeaveSounds)
+        {
+            this.audioDeviceController.PlaySfx(this.roomJoinSound);
+        }
+    }
+
+    private void OnPeerRemoved(Peer peer)
+    {
+        if (this.configuration.PlayRoomJoinAndLeaveSounds)
+        {
+            this.audioDeviceController.PlaySfx(this.roomOtherLeaveSound);
+        }
     }
 
     private void SendAudioSampleToAllPeers(object? sender, WaveInEventArgs e)

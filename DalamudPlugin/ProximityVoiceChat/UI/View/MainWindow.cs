@@ -510,15 +510,13 @@ public class MainWindow : Window, IPluginUIView, IDisposable
 
     private nint GetMicrophoneImage(bool muted, bool self)
     {
-        var resourcesDir = Path.Combine(this.pluginInterface.AssemblyLocation.Directory?.FullName!, "Resources");
         var imageName = muted ? (self ? "microphone-muted-self.png" : "microphone-muted.png") : "microphone.png";
-        return this.textureProvider.GetFromFile(Path.Combine(resourcesDir, imageName)).GetWrapOrDefault()?.ImGuiHandle ?? default;
+        return this.textureProvider.GetFromFile(this.pluginInterface.GetResourcePath(imageName)).GetWrapOrDefault()?.ImGuiHandle ?? default;
     }
 
     private nint GetHeadphonesImage(bool deafened, bool self)
     {
-        var resourcesDir = Path.Combine(this.pluginInterface.AssemblyLocation.Directory?.FullName!, "Resources");
         var imageName = deafened ? (self ? "headphones-deafen-self.png" : "headphones-deafen.png") : "headphones.png";
-        return this.textureProvider.GetFromFile(Path.Combine(resourcesDir, imageName)).GetWrapOrDefault()?.ImGuiHandle ?? default;
+        return this.textureProvider.GetFromFile(this.pluginInterface.GetResourcePath(imageName)).GetWrapOrDefault()?.ImGuiHandle ?? default;
     }
 }

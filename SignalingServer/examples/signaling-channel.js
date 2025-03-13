@@ -14,12 +14,14 @@ class SignalingChannel {
      * @param {String} peerType - What type of peer this is, this is up to the application. For example peerType can be 'admin', 'vehicle', 'controltower' or 'robot' depending on your application
      * @param {String} signalingServerUrl - URL to the signaling server
      * @param {String} token - The token used to authenticate the connection to the signaling server
+     * @param {String} roomName - The room name to join on the signaling server
      * @param {Boolean} verbose - If true the channel will print its status when events occur
      * @memberof SignalingChannel
      */
-    constructor(peerId, peerType, signalingServerUrl, token, verbose = false) {
+    constructor(peerId, peerType, signalingServerUrl, token, roomName, verbose = false) {
         this.peerId = peerId;
         this.peerType = peerType;
+        this.roomName = roomName;
         this.verbose = verbose;
         this.resetListeners();
         this.socket = new io(signalingServerUrl, {
@@ -100,7 +102,7 @@ class SignalingChannel {
         }
         this.onConnect = () => {
             this.verbose ? console.log("Connected to signaling server with id", this.socket.id) : "";
-            this.socket.emit("ready", this.peerId, this.peerType, "testPeer1", "0000");
+            this.socket.emit("ready", this.peerId, this.peerType, this.roomName, "0000");
         };
         this.onDisconnect = () => (this.verbose ? console.log("Disconnected from signaling server") : "");
         this.onError = (error) => (this.verbose ? console.log("Signaling Server ERROR", error) : "");

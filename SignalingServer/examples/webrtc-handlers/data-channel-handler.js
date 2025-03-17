@@ -12,41 +12,42 @@
  * @param {Function} peer.remove - Closes all connections and removes the peer. Automatically called when peer leaves signaling server.
  */
 function dataChannelHandler(ourPeerId, ourPeerType, peer) {
-    const peerId = peer.peerId;
-    const channel = peer.dataChannel;
+  const peerId = peer.peerId;
+  const channel = peer.dataChannel;
 
-    const onOpen = (event) => {
-        /* 
-            YOUR CODE HERE - This code is executed when the data channel opens.
-            For example, you can send data to the peer:
-        */
-        channel.send(`Hello from ${ourPeerId}`);
-    };
-    const onMessage = (event) => {
-        /* 
-            YOUR CODE HERE - This code is executed when a message is recieved from the peer.
-            For example, extract the data and log it to the console:
-        */
-        const { data } = event;
-        console.log(peerId, "says:", `"${data}"`); // put peer data inside quotation marks
-    };
-    const onClose = (event) => {
-        /* 
-            YOUR CODE HERE - This code is executed when the data channel is closed.
-            For example, log the closing event to the console:
-        */
-        console.log(`Channel with ${peerId} is closing `);
-    };
+  const onOpen = (event) => {
+    /* 
+      YOUR CODE HERE - This code is executed when the data channel opens.
+      For example, you can send data to the peer:
+    */
+    // channel.send(`Hello from ${ourPeerId}`);
+    channel.open = true;
+  };
+  const onMessage = (event) => {
+    /* 
+      YOUR CODE HERE - This code is executed when a message is recieved from the peer.
+      For example, extract the data and log it to the console:
+    */
+    const { data } = event;
+    // console.log(peerId, "says:", `"${data}"`); // put peer data inside quotation marks
+  };
+  const onClose = (event) => {
+    /* 
+      YOUR CODE HERE - This code is executed when the data channel is closed.
+      For example, log the closing event to the console:
+    */
+    channel.open = false;
+    console.log(`Channel with ${peerId} is closing `);
+  };
 
-    channel.onopen = (event) => {
-        if (event.type === "open") {
-            console.log("Data channel with", peerId, "is open");
-            channel.onmessage = onMessage;
-            channel.onclose = onClose;
-            onOpen(event);
-        }
-    };
+  channel.onopen = (event) => {
+    if (event.type === "open") {
+      console.log("Data channel with", peerId, "is open");
+      channel.onmessage = onMessage;
+      channel.onclose = onClose;
+      onOpen(event);
+    }
+  };
 }
 
 export default dataChannelHandler;
-

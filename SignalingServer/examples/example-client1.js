@@ -2,6 +2,7 @@
 import util from "util";
 import fs from "fs";
 import { setTimeout } from "timers/promises";
+import { Buffer } from "node:buffer";
 import SignalingChannel from "./signaling-channel.js";
 import WebrtcManager from "./webrtc-manager.js";
 import dataChannelHandler from "./webrtc-handlers/data-channel-handler.js";
@@ -43,13 +44,26 @@ var chunkSize = 1920;
 var chunkTime = 20;
 (async () => {
   while (true) {
+    console.log(
+      `Restarting read of audio file - full data length: ${binaryData.length}`,
+    );
     var start = 44; // discard the wav header
     while (start < binaryData.length) {
       var toSend = binaryData.slice(start, start + chunkSize);
+      var sampleLength = toSend.length;
+      var header = Buffer.alloc(2);
+      header.writeInt16BE(sampleLength, 0);
+      toSend = Buffer.concat([header, toSend]);
       start = start + chunkSize;
-      console.log(
-        `(${toSend.length})[${[...Uint8Array.from(toSend.slice(0, 20))]},...]`,
-      );
+      for (const [, peer] of Object.entries(manager.peers)) {
+        if (peer.dataChannel.open) {
+          peer.dataChannel.send(toSend);
+        }
+      }
+      // console.log(toSend);
+      // console.log(
+      //   `(${toSend.length})[${[...Uint8Array.from(toSend.slice(0, 20))]},...]`,
+      // );
       await setTimeout(chunkTime);
     }
   }

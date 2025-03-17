@@ -32,6 +32,7 @@
         "eslint-config-prettier": "^10.1.1",
         "fs": "^0.0.1-security",
         "globals": "^16.0.0",
+        "node-pre-gyp": "^0.17.0",
         "nodemon": "^3.1.4",
         "pino-pretty": "^13.0.0",
         "prettier": "3.5.3",

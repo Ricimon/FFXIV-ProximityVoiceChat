@@ -7,10 +7,8 @@ import SignalingChannel from "./signaling-channel.js";
 import WebrtcManager from "./webrtc-manager.js";
 import dataChannelHandler from "./webrtc-handlers/data-channel-handler.js";
 
-const PORT = process.env.PORT || 3030;
+const SIGNALING_SERVER_URL = process.env.SIGNALING_SERVER_URL || "http://localhost:3030";
 const TOKEN = process.env.TOKEN || "SIGNALING123";
-// const SIGNALING_SERVER_URL = "http://localhost:" + PORT;
-const SIGNALING_SERVER_URL = "https://ffxivdev.ricimon.com";
 const PEER_ID = "testPeer1";
 const PEER_TYPE = "admin";
 const verbose = true;

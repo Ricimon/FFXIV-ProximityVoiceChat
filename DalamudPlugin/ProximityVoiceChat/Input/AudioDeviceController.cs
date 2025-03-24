@@ -131,7 +131,7 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
 
     private const int SampleRate = 48000; // RNNoise frequency
     private const int FrameLength = 20; // 20 ms, for max compatibility
-    private const int WaveOutDesiredLatency = 200;
+    private const int WaveOutDesiredLatency = 100;
     private const int WaveOutNumberOfBuffers = 5;
     private const int MinimumBufferClearIntervalMs = 5000;
 

@@ -122,9 +122,9 @@ public class PushToTalkController : IAudioDeviceController
         this.baseAudioDeviceController.ResetAllChannelsVolume(volume);
     }
 
-    void IAudioDeviceController.SetChannelVolume(string channelName, float volume)
+    void IAudioDeviceController.SetChannelVolume(string channelName, float leftVolume, float rightVolume)
     {
-        this.baseAudioDeviceController.SetChannelVolume(channelName, volume);
+        this.baseAudioDeviceController.SetChannelVolume(channelName, leftVolume, rightVolume);
     }
 
     Task IAudioDeviceController.PlaySfx(CachedSound sound)

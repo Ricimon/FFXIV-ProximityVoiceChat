@@ -43,6 +43,7 @@ public class PluginModule : NinjectModule
         Bind<IAudioDeviceController, PushToTalkController>().To<PushToTalkController>().InSingletonScope();
         Bind<IAudioDeviceController>().To<AudioDeviceController>().WhenInjectedInto<PushToTalkController>().InSingletonScope();
         Bind<VoiceRoomManager>().ToSelf().InSingletonScope();
+        Bind<Spatializer>().ToSelf().InSingletonScope();
         Bind<MapManager>().ToSelf().InSingletonScope();
         Bind<WebRTCDataChannelHandler>().ToSelf();
         Bind<WebRTCDataChannelHandler.IFactory>().ToFactory();

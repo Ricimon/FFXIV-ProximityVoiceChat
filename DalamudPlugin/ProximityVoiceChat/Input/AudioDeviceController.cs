@@ -126,7 +126,7 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
     private bool recording;
     private bool playingBack;
     private WaveInEventArgs? lastAudioRecordingSourceData;
-    private CachedSoundSampleProvider? currentSfx;
+    private ISampleProvider? currentSfx;
     private TaskCompletionSource? currentSfxTcs;
 
     private const int SampleRate = 48000; // RNNoise frequency
@@ -139,7 +139,7 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
     private readonly Dictionary<string, PlaybackChannel> playbackChannels = [];
     private readonly int maxPlaybackChannelBufferSize;
     private readonly BufferedWaveProvider micPlaybackWaveProvider;
-    private readonly VolumeSampleProvider micPlaybackVolumeProvider;
+    private readonly MonoToStereoSampleProvider micPlaybackVolumeProvider;
     private readonly MixingSampleProvider outputSampleProvider;
     private readonly float[] denoiserFloatSamples = new float[GetSampleSize(SampleRate, FrameLength, 1) / 2];
     private readonly WebRtcVad selfVoiceActivityDetector = new()
@@ -192,9 +192,9 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
         // This is how buffer size is calculated in WaveOutEvent
         this.maxPlaybackChannelBufferSize = this.waveFormat.ConvertLatencyToByteSize((WaveOutDesiredLatency + WaveOutNumberOfBuffers - 1) / WaveOutNumberOfBuffers) * WaveOutNumberOfBuffers;
 
-        this.micPlaybackWaveProvider = new BufferedWaveProvider(this.waveFormat);
-        this.micPlaybackVolumeProvider = new VolumeSampleProvider(this.micPlaybackWaveProvider.ToSampleProvider());
-        this.outputSampleProvider = new MixingSampleProvider([this.micPlaybackVolumeProvider])
+        this.micPlaybackWaveProvider = new(this.waveFormat);
+        this.micPlaybackVolumeProvider = new(this.micPlaybackWaveProvider.ToSampleProvider());
+        this.outputSampleProvider = new([this.micPlaybackVolumeProvider])
         {
             ReadFully = true,
         };
@@ -260,11 +260,11 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
             DiscardOnBufferOverflow = true,
             BufferLength = this.waveFormat.AverageBytesPerSecond * 1,
         };
-        var vsp = new VolumeSampleProvider(bfp.ToSampleProvider());
-        this.outputSampleProvider.AddMixerInput(vsp);
+        var mssp = new MonoToStereoSampleProvider(bfp.ToSampleProvider());
+        this.outputSampleProvider.AddMixerInput(mssp);
         this.playbackChannels.Add(channelName, new()
         {
-            VolumeSampleProvider = vsp,
+            MonoToStereoSampleProvider = mssp,
             BufferedWaveProvider = bfp,
         });
     }
@@ -274,7 +274,7 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
         if (this.playbackChannels.TryGetValue(channelName, out var channel))
         {
             channel.BufferedWaveProvider.ClearBuffer();
-            this.outputSampleProvider.RemoveMixerInput(channel.VolumeSampleProvider);
+            this.outputSampleProvider.RemoveMixerInput(channel.MonoToStereoSampleProvider);
             this.playbackChannels.Remove(channelName);
             channel.Dispose();
         }
@@ -366,23 +366,26 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
             {
                 volume *= peerVolume;
             }
-            channel.Value.VolumeSampleProvider.Volume = volume;
+            channel.Value.MonoToStereoSampleProvider.LeftVolume = volume;
+            channel.Value.MonoToStereoSampleProvider.RightVolume = volume;
         }
     }
 
-    public void SetChannelVolume(string channelName, float volume)
+    public void SetChannelVolume(string channelName, float leftVolume, float rightVolume)
     {
         if (this.Deafen || this.PlayingBackMicAudio)
         {
-            volume = 0.0f;
+            leftVolume = rightVolume = 0.0f;
         }
-        if (volume != 0.0f && this.configuration.PeerVolumes.TryGetValue(channelName, out var peerVolume))
+        if ((leftVolume > 0.0f || rightVolume > 0.0f) && this.configuration.PeerVolumes.TryGetValue(channelName, out var peerVolume))
         {
-            volume *= peerVolume;
+            leftVolume *= peerVolume;
+            rightVolume *= peerVolume;
         }
         if (this.playbackChannels.TryGetValue(channelName, out var channel))
         {
-            channel.VolumeSampleProvider.Volume = volume;
+            channel.MonoToStereoSampleProvider.LeftVolume = leftVolume;
+            channel.MonoToStereoSampleProvider.RightVolume = rightVolume;
         }
     }
 
@@ -390,7 +393,8 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
     {
         if (this.playbackChannels.TryGetValue(channelName, out var channel))
         {
-            if (channel.VolumeSampleProvider.Volume == 0.0f)
+            if (channel.MonoToStereoSampleProvider.LeftVolume == 0.0f &&
+                channel.MonoToStereoSampleProvider.RightVolume == 0.0f)
             {
                 return false;
             }
@@ -421,7 +425,7 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
             this.outputSampleProvider.RemoveMixerInput(this.currentSfx);
             this.currentSfxTcs?.TrySetCanceled();
         }
-        this.currentSfx = new CachedSoundSampleProvider(sound);
+        this.currentSfx = new MonoToStereoSampleProvider(new CachedSoundSampleProvider(sound));
         this.outputSampleProvider.AddMixerInput(this.currentSfx);
         this.currentSfxTcs = new TaskCompletionSource();
         return this.currentSfxTcs.Task;
@@ -510,7 +514,7 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
         if (this.audioPlaybackSource != null && this.PlayingBackMicAudio)
         {
             this.micPlaybackWaveProvider.AddSamples(e.Buffer, 0, e.BytesRecorded);
-            this.micPlaybackVolumeProvider.Volume = this.configuration.MasterVolume;
+            this.micPlaybackVolumeProvider.LeftVolume = this.micPlaybackVolumeProvider.RightVolume = this.configuration.MasterVolume;
         }
         this.lastAudioRecordingSourceData = e;
         this.OnAudioRecordingSourceDataAvailable?.Invoke(this, e);

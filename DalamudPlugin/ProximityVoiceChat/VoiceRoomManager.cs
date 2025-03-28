@@ -78,7 +78,9 @@ public class VoiceRoomManager : IDisposable
     private readonly IClientState clientState;
     private readonly IFramework framework;
     private readonly IObjectTable objectTable;
+    private readonly IGameGui gameGui;
     private readonly Configuration configuration;
+    private readonly Spatializer spatializer;
     private readonly MapManager mapManager;
     private readonly WebRTCDataChannelHandler.IFactory dataChannelHandlerFactory;
     private readonly IAudioDeviceController audioDeviceController;
@@ -95,7 +97,9 @@ public class VoiceRoomManager : IDisposable
         IClientState clientState,
         IFramework framework,
         IObjectTable objectTable,
+        IGameGui gameGui,
         Configuration configuration,
+        Spatializer audioSpatializer,
         MapManager mapManager,
         WebRTCDataChannelHandler.IFactory dataChannelHandlerFactory,
         IAudioDeviceController audioDeviceController,
@@ -105,7 +109,9 @@ public class VoiceRoomManager : IDisposable
         this.clientState = clientState;
         this.framework = framework;
         this.objectTable = objectTable;
+        this.gameGui = gameGui;
         this.configuration = configuration;
+        this.spatializer = audioSpatializer;
         this.mapManager = mapManager;
         this.dataChannelHandlerFactory = dataChannelHandlerFactory;
         this.audioDeviceController = audioDeviceController;
@@ -281,6 +287,24 @@ public class VoiceRoomManager : IDisposable
     {
         try
         {
+            // Debug stuff
+            unsafe
+            {
+                var renderingCamera = *FFXIVClientStructs.FFXIV.Client.Graphics.Scene.CameraManager.Instance()->CurrentCamera;
+                // renderingCamera.Rotation is always (0,0,0,1)
+                // renderingCamera.LookAtVector doesn't seem accurate
+                // renderingCamera.Vector_1 seems to only change with camera pitch
+                // renderingCamera.Position = renderingCamera.Object.Position
+                // https://github.com/NotNite/Linkpearl/blob/main/Linkpearl/Plugin.cs
+                var lookAtVector = new Vector3(renderingCamera.ViewMatrix.M13, renderingCamera.ViewMatrix.M23, renderingCamera.ViewMatrix.M33);
+                //Matrix4x4.Decompose(renderingCamera.ViewMatrix, out var scale, out var rotation, out var position);
+                this.logger.Debug("PlayerPosition {0}, CameraPosition {1}, LookAtVector {2}, CameraUp {3}",
+                    (this.clientState.LocalPlayer?.Position ?? Vector3.Zero).ToString("F2", null),
+                    renderingCamera.Position.ToString("F2", null),  // useful
+                    lookAtVector.ToString("F2", null),  // useful
+                    renderingCamera.Vector_1.ToString("F2", null)); // not useful
+            }
+
             // Use polling to set individual channel volumes.
             // The search is done by iterating through all GameObjects and finding any connected players out of them,
             // so we reset all players volumes before calculating any volumes in case the players cannot be found.
@@ -316,45 +340,17 @@ public class VoiceRoomManager : IDisposable
                     peer.PeerConnection.DataChannels.Count > 0)
                 {
                     var trackedPlayer = this.TrackedPlayers.TryGetValue(playerName, out var tp) ? tp : null;
-                    var distance = Vector3.Distance(this.clientState.LocalPlayer.Position, player.Position);
-                    var deathMute = this.configuration.MuteDeadPlayers;
+                    this.spatializer.CalculateSpatialValues(player, trackedPlayer, thisTick,
+                       out var leftVolume, out var rightVolume, out var distance);
 
-                    if (trackedPlayer != null)
-                    {
-                        if (!player.IsDead)
-                        {
-                            trackedPlayer.LastTickFoundAlive = thisTick;
-                            deathMute = false;
-                        }
-                        else if (deathMute &&
-                            trackedPlayer.LastTickFoundAlive.HasValue &&
-                            thisTick - trackedPlayer.LastTickFoundAlive < this.configuration.MuteDeadPlayersDelayMs)
-                        {
-                            deathMute = false;
-                        }
-                    }
-                    else
-                    {
-                        deathMute = deathMute && player.IsDead;
-                    }
+                    leftVolume *= this.configuration.MasterVolume;
+                    rightVolume *= this.configuration.MasterVolume;
 
-                    float volume;
-                    if (deathMute)
-                    {
-                        volume = 0;
-                        //this.logger.Debug("Player {0} is dead, setting volume to {1}", peer.PeerId, volume);
-                    }
-                    else
-                    {
-                        volume = CalculateVolume(distance);
-                        //this.logger.Debug("Player {0} is {1} units away, setting volume to {2}", peer.PeerId, distance, volume);
-                    }
-
-                    this.audioDeviceController.SetChannelVolume(peer.PeerId, volume * this.configuration.MasterVolume);
+                    this.audioDeviceController.SetChannelVolume(peer.PeerId, leftVolume, rightVolume);
                     if (trackedPlayer != null)
                     {
                         trackedPlayer.Distance = distance;
-                        trackedPlayer.Volume = volume;
+                        trackedPlayer.Volume = (leftVolume + rightVolume) * 0.5f;
                     }
                 }
             }
@@ -363,47 +359,6 @@ public class VoiceRoomManager : IDisposable
         {
             this.frameworkThreadSemaphore.Release();
         }
-    }
-
-    private float CalculateVolume(float distance)
-    {
-        var minDistance = this.configuration.FalloffModel.MinimumDistance;
-        var maxDistance = this.configuration.FalloffModel.MaximumDistance;
-        var falloffFactor = this.configuration.FalloffModel.FalloffFactor;
-        double volume;
-        try
-        {
-            double scale;
-            switch (this.configuration.FalloffModel.Type)
-            {
-                case AudioFalloffModel.FalloffType.None:
-                    volume = 1.0;
-                    break;
-                case AudioFalloffModel.FalloffType.InverseDistance:
-                    distance = Math.Clamp(distance, minDistance, maxDistance);
-                    scale = Math.Pow((maxDistance - distance) / (maxDistance - minDistance), distance / maxDistance);
-                    volume = minDistance / (minDistance + falloffFactor * (distance - minDistance)) * scale;
-                    break;
-                case AudioFalloffModel.FalloffType.ExponentialDistance:
-                    distance = Math.Clamp(distance, minDistance, maxDistance);
-                    scale = Math.Pow((maxDistance - distance) / (maxDistance - minDistance), distance / maxDistance);
-                    volume = Math.Pow(distance / minDistance, -falloffFactor) * scale;
-                    break;
-                case AudioFalloffModel.FalloffType.LinearDistance:
-                    distance = Math.Clamp(distance, minDistance, maxDistance);
-                    volume = 1 - falloffFactor * (distance - minDistance) / (maxDistance - minDistance);
-                    break;
-                default:
-                    volume = 1.0;
-                    break;
-            }
-        }
-        catch (Exception e) when (e is DivideByZeroException or ArgumentException)
-        {
-            volume = 1.0;
-        }
-        volume = Math.Clamp(volume, 0.0, 1.0);
-        return (float)volume;
     }
 
     private void JoinVoiceRoom(string roomName, string roomPassword, string[]? playersInInstance)
@@ -419,8 +374,13 @@ public class VoiceRoomManager : IDisposable
         var playerName = this.clientState.GetLocalPlayerFullName();
         if (playerName == null)
         {
+#if DEBUG
+            playerName = "testPeer14";
+            this.logger.Warn("Player name is null. Setting it to {0} for debugging.", playerName);
+#else
             this.logger.Error("Player name is null, cannot join voice room.");
             return;
+#endif
         }
 
         this.InRoom = true;

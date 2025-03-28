@@ -7,7 +7,7 @@ namespace ProximityVoiceChat.Input;
 
 public class PlaybackChannel : IDisposable
 {
-    public required VolumeSampleProvider VolumeSampleProvider { get; set; }
+    public required MonoToStereoSampleProvider MonoToStereoSampleProvider { get; set; }
     public required BufferedWaveProvider BufferedWaveProvider { get; set; }
     public WaveInEventArgs? LastSampleAdded { get; set; }
     public int LastSampleAddedTimestampMs { get; set; }

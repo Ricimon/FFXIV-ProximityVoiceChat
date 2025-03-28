@@ -33,7 +33,7 @@ public interface IAudioDeviceController
     void AddPlaybackSample(string channelName, WaveInEventArgs sample);
 
     void ResetAllChannelsVolume(float volume);
-    void SetChannelVolume(string channelName, float volume);
+    void SetChannelVolume(string channelName, float leftVolume, float rightVolume);
 
     bool ChannelHasActivity(string channelName);
 

@@ -1,0 +1,7 @@
+## Spatialization
+
+There's a pretty big rabbit hole to go down to get accurate audio spatialization. At the simplest level, spatialization can be done by panning audio based on how far left or right the audio source is from the listener. The amount to pan has different implementations, but this method overall has limitations. This [StackOverflow post](https://stackoverflow.com/a/67081750) gives a good explanation of the limitations and the idea behind methods for improved accuracy.
+
+One of the methods is to use Head-Related Transfer Functions (HRTF), which are a collection mathematical functions that can transform an input audio stream to simulate being in a specific spatial position (some can be found [here](https://github.com/csound/csound/tree/develop/samples)). These functions are found through real-world measurements and alter all parts of an audio stream, from changing amplitudes to modulating frequencies. The resulting output stereo audio is called binaural audio. The math behind applying these functions is computationally heavy, however, as the input audio must be convoluted with the HRTF impulse response data. Convolution is a time-based operation (see N-point finite impulse response filter), so even if the math can be optimized, audio latency must be introduced to properly execute the convolution.
+
+This is then all to say, trying to create binaural audio for spatialization is not viable for this project, and it's better to just stick with simple panning.

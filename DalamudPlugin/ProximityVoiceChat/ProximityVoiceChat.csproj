@@ -1,16 +1,14 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project Sdk="Microsoft.NET.Sdk">
-  <Import Project="Dalamud.Plugin.Bootstrap.targets" />
-
+<Project Sdk="Dalamud.NET.Sdk/12.0.2">
   <PropertyGroup>
     <Authors>Ricimon</Authors>
     <Company></Company>
-    <Version>0.4.3.0</Version>
+    <Version>0.4.4.0</Version>
     <Description></Description>
     <Copyright></Copyright>
     <PackageProjectUrl>https://github.com/Ricimon/FFXIV-ProximityVoiceChat</PackageProjectUrl>
     <IsPackable>false</IsPackable>
-    <TargetFramework>net8.0-windows10.0.17763.0</TargetFramework>
+    <TargetFramework>net9.0-windows7.0</TargetFramework>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -42,17 +40,17 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="mrwebrtc.dll">
+    <Content Include="Resources\**\*.*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="config.json">
+    </Content>
+    <Content Include="mrwebrtc.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="ProximityVoiceChat.json">
+    </Content>
+    <Content Include="config.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Resources\**\*.*">
+    </Content>
+    <Content Include="ProximityVoiceChat.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
+    </Content>
   </ItemGroup>
 </Project>

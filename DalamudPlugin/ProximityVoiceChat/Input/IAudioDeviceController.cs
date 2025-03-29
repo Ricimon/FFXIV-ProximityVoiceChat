@@ -15,8 +15,8 @@ public interface IAudioDeviceController
 
     public bool PlayingBackMicAudio { get; set; }
 
-    public bool AudioRecordingIsRequested {  get; set; }
-    public bool AudioPlaybackIsRequested {  get; set; }
+    public bool AudioRecordingIsRequested { get; set; }
+    public bool AudioPlaybackIsRequested { get; set; }
 
     public int AudioRecordingDeviceIndex { get; set; }
     public int AudioPlaybackDeviceIndex { get; set; }

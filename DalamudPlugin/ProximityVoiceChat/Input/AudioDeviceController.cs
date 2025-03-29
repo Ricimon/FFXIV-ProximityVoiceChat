@@ -3,6 +3,7 @@ using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using AsyncAwaitBestPractices;
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
 using ProximityVoiceChat.Log;
@@ -552,7 +553,10 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
             if (recordingSource != null)
             {
                 this.logger.Debug("Stopping audio recording source from device {0}", recordingSource.DeviceNumber);
-                recordingSource.StopRecording();
+                // Since Dalamud 12, for some reason, NAudio is liable to crash if StopRecording() is called from a UI thread.
+                // In testing, this happened every 2nd call to this method from the UI thread.
+                // So, wrap it in Task.Run to put it on another thread.
+                Task.Run(recordingSource.StopRecording).SafeFireAndForget(ex => this.logger.Error(ex.ToString()));
             }
             this.lastAudioRecordingSourceData = null;
             this.denoiser?.Dispose(); this.denoiser = null;

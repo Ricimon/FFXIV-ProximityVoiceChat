@@ -5,8 +5,8 @@
         "Description": "An in-game voice chat plugin with character proximity detection.",
         "Punchline": "In-game proximity voice chat",
         "InternalName": "ProximityVoiceChat",
-        "AssemblyVersion": "0.4.4.0",
-        "TestingAssemblyVersion": "0.4.4.0",
+        "AssemblyVersion": "0.4.5.0",
+        "TestingAssemblyVersion": "0.4.5.0",
         "RepoUrl": "https://github.com/Ricimon/FFXIV-ProximityVoiceChat",
         "IconUrl": "https://raw.githubusercontent.com/Ricimon/FFXIV-ProximityVoiceChat/master/images/icon.png",
         "ApplicableVersion": "any",
@@ -15,8 +15,8 @@
         "IsTestingExclusive": "False",
         "LastUpdate": 0,
         "DownloadCount": 0,
-        "DownloadLinkInstall": "https://github.com/Ricimon/FFXIV-ProximityVoiceChat/releases/download/v0.4.4-beta/ProximityVoiceChat_v0.4.4.zip",
-        "DownloadLinkTesting": "https://github.com/Ricimon/FFXIV-ProximityVoiceChat/releases/download/v0.4.4-beta/ProximityVoiceChat_v0.4.4.zip",
-        "DownloadLinkUpdate": "https://github.com/Ricimon/FFXIV-ProximityVoiceChat/releases/download/v0.4.4-beta/ProximityVoiceChat_v0.4.4.zip"
+        "DownloadLinkInstall": "https://github.com/Ricimon/FFXIV-ProximityVoiceChat/releases/download/v0.4.5-beta/ProximityVoiceChat_v0.4.5.zip",
+        "DownloadLinkTesting": "https://github.com/Ricimon/FFXIV-ProximityVoiceChat/releases/download/v0.4.5-beta/ProximityVoiceChat_v0.4.5.zip",
+        "DownloadLinkUpdate": "https://github.com/Ricimon/FFXIV-ProximityVoiceChat/releases/download/v0.4.5-beta/ProximityVoiceChat_v0.4.5.zip"
     }
 ]

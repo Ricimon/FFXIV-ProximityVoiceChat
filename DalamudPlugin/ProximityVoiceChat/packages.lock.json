@@ -1,12 +1,12 @@
 {
   "version": 1,
   "dependencies": {
-    "net9.0-windows7.0": {
+    "net9.0-windows10.0.17763": {
       "AsyncAwaitBestPractices": {
         "type": "Direct",
-        "requested": "[8.0.0, )",
-        "resolved": "8.0.0",
-        "contentHash": "oL+t1uj/i/RWp20w46/j4YKO+1F4cluAIMl6z/wB8GmycWhBzh6cEXLR7Ova/QH5JgismOQlJoOSvid3KSLQ2Q=="
+        "requested": "[9.0.0, )",
+        "resolved": "9.0.0",
+        "contentHash": "I6gUk7fZdu1h+BlgrZbgHUMv9OhXft5Df4ceH+NrOhNYKm0k3yoCjLoi7qpHqxgZq6grqaohEoQXdOHOtYgHiw=="
       },
       "DalamudPackager": {
         "type": "Direct",
@@ -56,17 +56,17 @@
       },
       "NLog": {
         "type": "Direct",
-        "requested": "[5.3.4, )",
-        "resolved": "5.3.4",
-        "contentHash": "gLy7+O1hEYJXIlcTr1/VWjGXrZTQFZzYNO18IWasD64pNwz0BreV+nHLxWKXWZzERRzoKnsk2XYtwLkTVk7J1A=="
+        "requested": "[5.4.0, )",
+        "resolved": "5.4.0",
+        "contentHash": "LwMcGSW3soF3/SL68rlJN3Eh3ktrAPycC3zZR/07OYBPraZUu0bygEC7kIN10lUQgMXT4s84Fi1chglGdGrQEg=="
       },
       "ReactiveProperty": {
         "type": "Direct",
-        "requested": "[9.6.0, )",
-        "resolved": "9.6.0",
-        "contentHash": "HhNPvy+m0J+V9us8vcSgagfVYOObk+eQx+DB/7vN3S7hIZQxuOse68CPDnRB9S/h3BATMIfqxKtAIlXpfOe2FQ==",
+        "requested": "[9.7.0, )",
+        "resolved": "9.7.0",
+        "contentHash": "Chm/sEmnOjNZ8mKrB1wguJfrKaGy/7KSvs6uij+LMzlgb6Ozq7x8/dJYrWutdk3IUUl/EsjaCIMAPOLl5FRDOA==",
         "dependencies": {
-          "ReactiveProperty.Core": "9.6.0",
+          "ReactiveProperty.Core": "9.7.0",
           "System.ComponentModel.Annotations": "5.0.0",
           "System.Reactive": "6.0.1"
         }
@@ -117,9 +117,9 @@
       },
       "YamlDotNet": {
         "type": "Direct",
-        "requested": "[16.1.3, )",
-        "resolved": "16.1.3",
-        "contentHash": "gtHGiDvU9VTtWte8f0thIM38cL1oowOjStKpeAEKKfA+Rc4AvekJzqFDZiiPcc4kw00ZiwR4OTJS56L16q98DQ=="
+        "requested": "[16.3.0, )",
+        "resolved": "16.3.0",
+        "contentHash": "SgMOdxbz8X65z8hraIs6hOEdnkH6hESTAIUa7viEngHOYaH+6q5XJmwr1+yb9vJpNQ19hCQY69xbFsLtXpobQA=="
       },
       "YellowDogMan.RRNoise.NET": {
         "type": "Direct",
@@ -299,8 +299,8 @@
       },
       "ReactiveProperty.Core": {
         "type": "Transitive",
-        "resolved": "9.6.0",
-        "contentHash": "ZgPHA0XXgTHAa737OI9D+2AvFqRDmd5l0k/n63pKQaltqJbcTvOf6Hsm74hxQulvsuZKCSQIkAe/ov5cA9ErVg==",
+        "resolved": "9.7.0",
+        "contentHash": "RPjkQD0d0uMF7fC9t9EY1anF+HzwGsx+EXYWq0BHah5Y2pQZbQ/szOPYhsGdu0JsawiknlubC6hIE2rTokWWYQ==",
         "dependencies": {
           "System.ComponentModel.Annotations": "5.0.0"
         }

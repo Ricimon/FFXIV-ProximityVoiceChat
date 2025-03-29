@@ -316,7 +316,7 @@ public class MainWindow : Window, IPluginUIView, IDisposable
                         tooltip = "Connected";
                         connected = true;
                     }
-                    else if (!signalingChannel.Disconnected)
+                    else if (signalingChannel.Connecting)
                     {
                         color = Vector4Colors.Orange;
                         tooltip = "Connecting";

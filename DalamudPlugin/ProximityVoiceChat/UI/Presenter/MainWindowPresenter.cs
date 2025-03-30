@@ -36,7 +36,12 @@ public class MainWindowPresenter(
     private void BindVariables()
     {
         Bind(this.view.PublicRoom,
-            b => { this.configuration.PublicRoom = b; this.configuration.Save(); }, this.configuration.PublicRoom);
+            b =>
+            {
+                this.configuration.PublicRoom = b; this.configuration.Save();
+                this.voiceRoomManager.SignalingChannel?.ClearLatestDisconnectMessage();
+            },
+            this.configuration.PublicRoom);
         Bind(this.view.RoomName,
             s => { this.configuration.RoomName = s; this.configuration.Save(); }, this.configuration.RoomName);
         Bind(this.view.RoomPassword,

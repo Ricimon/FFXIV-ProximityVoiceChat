@@ -243,7 +243,7 @@ public class VoiceRoomManager : IDisposable
 
     public void PushPlayerAudioState()
     {
-        if (this.SignalingChannel == null || !this.SignalingChannel.Ready)
+        if (this.SignalingChannel == null || !this.SignalingChannel.Connected)
         {
             return;
         }

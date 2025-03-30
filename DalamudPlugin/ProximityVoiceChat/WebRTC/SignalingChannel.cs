@@ -13,11 +13,14 @@ namespace ProximityVoiceChat.WebRTC;
 
 public class SignalingChannel : IDisposable
 {
-    public bool Connected => !(this.disconnectCts?.IsCancellationRequested ?? false) && this.socket.Connected;
-    public bool Ready => this.Connected && this.ready;
-    public bool Disconnected { get; private set; }
+    // Since Dalamud 12, for some reason accessing socket parameters such as socket.Connected from the UI thread
+    // would crash the game. So, intermediate field booleans are now used to indicate state to the UI.
+    public bool Connected => this.socket != null && !this.connecting && this.disconnectCts != null && !this.disconnectCts.IsCancellationRequested;
+    public bool Connecting => this.socket != null && this.connecting && this.disconnectCts != null && !this.disconnectCts.IsCancellationRequested;
     public string PeerId { get; }
     public string PeerType { get; }
+    public string SignalingServerUrl { get; }
+    public string Token { get; }
     public string? RoomName { get; private set; }
     public string? LatestServerDisconnectMessage { get; private set; }
 
@@ -27,12 +30,14 @@ public class SignalingChannel : IDisposable
     public event Action? OnDisconnected;
     public event Action? OnErrored;
 
+    private SocketIOClient.SocketIO? socket;
     private CancellationTokenSource? disconnectCts;
     private string? roomPassword;
     private string[]? playersInInstance;
+    private bool connecting;
+    // Connecting to an empty room may not send back a "Ready" reply, so don't rely on this for connection state
     private bool ready;
 
-    private readonly SocketIOClient.SocketIO socket;
     private readonly ILogger logger;
     private readonly bool verbose;
 
@@ -40,34 +45,40 @@ public class SignalingChannel : IDisposable
     {
         this.PeerId = peerId;
         this.PeerType = peerType;
+        this.SignalingServerUrl = signalingServerUrl;
+        this.Token = token;
         this.logger = logger;
         this.verbose = verbose;
-        this.socket = new SocketIOClient.SocketIO(signalingServerUrl, new SocketIOOptions
-        {
-            Auth = new Dictionary<string, string>() { { "token", token } },
-            Reconnection = true,
-        });
-        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web)
-        {
-            IncludeFields = true,
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-        };
-        options.Converters.Add(new JsonStringEnumConverter());
-        this.socket.Serializer = new SystemTextJsonSerializer(options);
-        this.AddListeners();
     }
 
     public Task ConnectAsync(string roomName, string roomPassword, string[]? playersInInstance)
     {
+        if (this.socket == null)
+        {
+            this.socket = new SocketIOClient.SocketIO(this.SignalingServerUrl, new SocketIOOptions
+            {
+                Auth = new Dictionary<string, string>() { { "token", this.Token } },
+                Reconnection = true,
+            });
+            var options = new JsonSerializerOptions(JsonSerializerDefaults.Web)
+            {
+                IncludeFields = true,
+                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+            };
+            options.Converters.Add(new JsonStringEnumConverter());
+            this.socket.Serializer = new SystemTextJsonSerializer(options);
+            this.AddListeners();
+        }
+
         if (this.socket.Connected)
         {
             this.logger.Error("Signaling server is already connected.");
             return Task.CompletedTask;
         }
+        this.connecting = true;
         this.ready = false;
         this.disconnectCts?.Dispose();
         this.disconnectCts = new();
-        this.Disconnected = false;
         this.RoomName = roomName;
         this.roomPassword = roomPassword;
         this.playersInInstance = playersInInstance;
@@ -76,7 +87,7 @@ public class SignalingChannel : IDisposable
 
     public Task SendAsync(SignalMessage.SignalPayload payload)
     {
-        if (this.socket.Connected)
+        if (this.socket != null && this.socket.Connected)
         {
             return this.socket.EmitAsync("message", new SignalMessage
             {
@@ -93,7 +104,7 @@ public class SignalingChannel : IDisposable
 
     public Task SendToAsync(string targetPeerId, SignalMessage.SignalPayload payload)
     {
-        if (this.socket.Connected)
+        if (this.socket != null && this.socket.Connected)
         {
             return this.socket.EmitAsync("messageOne", new SignalMessage
             {
@@ -110,15 +121,22 @@ public class SignalingChannel : IDisposable
 
     public Task DisconnectAsync()
     {
-        this.Disconnected = true;
-        if (this.socket.Connected)
+        if (this.socket != null)
         {
-            return this.socket.DisconnectAsync();
+            if (this.socket.Connected)
+            {
+                return this.socket.DisconnectAsync();
+            }
+            else
+            {
+                this.logger.Debug("Cancelling signaling server connection.");
+                this.disconnectCts?.Cancel();
+                this.DisposeSocket();
+                return Task.CompletedTask;
+            }
         }
         else
         {
-            this.logger.Debug("Cancelling signaling server connection.");
-            this.disconnectCts?.Cancel();
             return Task.CompletedTask;
         }
     }
@@ -134,8 +152,7 @@ public class SignalingChannel : IDisposable
         this.OnReady = null;
         this.OnMessage = null;
         this.OnDisconnected = null;
-        this.RemoveListeners();
-        this.socket?.Dispose();
+        this.DisposeSocket();
         GC.SuppressFinalize(this);
     }
 
@@ -152,7 +169,7 @@ public class SignalingChannel : IDisposable
         }
     }
 
-    private void RemoveListeners()
+    private void DisposeSocket()
     {
         if (this.socket != null)
         {
@@ -162,14 +179,16 @@ public class SignalingChannel : IDisposable
             this.socket.OnReconnected -= this.OnReconnect;
             this.socket.Off("message");
             this.socket.Off("serverDisconnect");
+            this.socket.Dispose();
         }
+        this.socket = null;
     }
 
     private void OnConnect(object? sender, EventArgs args)
     {
         try
         {
-            if (!Connected)
+            if (this.socket == null || !this.socket.Connected)
             {
                 return;
             }
@@ -178,6 +197,7 @@ public class SignalingChannel : IDisposable
             {
                 this.logger.Debug("Connected to signaling server.");
             }
+            this.connecting = false;
             this.OnConnected?.Invoke();
             this.socket.EmitAsync("ready", this.PeerId, this.PeerType, this.RoomName, this.roomPassword, this.playersInInstance)
                 .SafeFireAndForget(ex => this.logger.Error(ex.ToString()));
@@ -196,8 +216,8 @@ public class SignalingChannel : IDisposable
             {
                 this.logger.Debug("Disconnected from signaling server, reason: {0}", reason);
             }
-            this.Disconnected = true;
             this.OnDisconnected?.Invoke();
+            this.DisposeSocket();
         }
         catch (Exception ex)
         {
@@ -210,13 +230,14 @@ public class SignalingChannel : IDisposable
         this.logger.Error("Signaling server ERROR: " + error);
         // An errored socket is considered disconnected, but we'll need to manually set disconnection state
         // and cancel the connection attempt.
-        this.Disconnected = true;
         this.disconnectCts?.Cancel();
         this.disconnectCts?.Dispose();
         this.disconnectCts = null;
         this.OnErrored?.Invoke();
         // There's a known exception here when attempting to connect again, due to the strange way
         // the Socket.IO for .NET library internally handles Task state transitions.
+        // But it's avoidable if we dispose the socket entirely
+        this.DisposeSocket();
     }
 
     private void OnReconnect(object? sender, int attempts)
@@ -229,11 +250,6 @@ public class SignalingChannel : IDisposable
 
     private void OnMessageCallback(SocketIOResponse response)
     {
-        if (!Connected)
-        {
-            return;
-        }
-
         //if (this.verbose)
         //{
         //    this.logger.Trace("Signaling server message: {0}", response);
@@ -249,18 +265,18 @@ public class SignalingChannel : IDisposable
 
     private void OnServerDisconnect(SocketIOResponse response)
     {
-        if (!Connected)
-        {
-            return;
-        }
-
         this.LatestServerDisconnectMessage = response.GetValue<SignalDisconnectMessage>().message;
         this.logger.Error("Signaling server disconnect: {0}", response);
 
+        // DEPRECATED COMMENT:
         // This message auto disconnects the client, but does not immediately set the socket state to not Connected.
         // So we need to dispose and nullify the token to avoid calling Cancel on the token, which for some reason
         // throws an exception due to cancellation token subscriptions.
         this.disconnectCts?.Dispose();
         this.disconnectCts = null;
+        this.DisposeSocket();
+
+        // Since Dalamud 12, this message no longer auto disconnects the client.
+        this.OnDisconnected?.Invoke();
     }
 }

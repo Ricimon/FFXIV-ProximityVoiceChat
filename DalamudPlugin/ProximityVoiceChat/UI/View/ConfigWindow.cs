@@ -280,7 +280,7 @@ public class ConfigWindow : Window, IPluginUIView, IDisposable
             ImGui.Text("Enable Spatialization");
             if (ImGui.IsItemHovered())
             {
-                ImGui.SetTooltip("(Experimental) Use camera facing direction to pan incoming audio");
+                ImGui.SetTooltip("Use camera facing direction to pan incoming audio");
             }
             ImGui.TableNextColumn();
             ImGui.SetNextItemWidth(ImGui.GetColumnWidth());

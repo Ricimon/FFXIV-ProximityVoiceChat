@@ -180,7 +180,7 @@ public class Spatializer : IDisposable
             volume = leftVolume = rightVolume = CalculateVolume(distance);
             //this.logger.Debug("Player {0} is {1} units away, setting volume to {2}", peer.PeerId, distance, volume);
 
-            if (this.configuration.EnableSpatializationExperimental)
+            if (this.configuration.EnableSpatialization)
             {
                 SpatializeVolume(volume, toTarget, out leftVolume, out rightVolume);
             }

@@ -6,8 +6,9 @@ This plugin adds proximity voice chat functionality to FFXIV as a Dalamud plugin
 
 ### Features
 - Public and private voice rooms
-- Customizable distance-volume falloff and individual volume controls
-- Mute ~~dead~~ incapacitated players
+- Customizable distance-volume falloff and spatialized audio support
+- Individual volume controls
+- Mute dead players
 - Push-to-talk and noise suppression
 
 #### Support discord
@@ -30,7 +31,6 @@ This adds plugins from this repo as installable plugins in the available plugins
 - Search for the **ProximityVoiceChat** plugin and click **install**.
 
 ## Planned Features
-- Spatial audio
 - Host-enforced audio falloff settings
 
 ## Contributing

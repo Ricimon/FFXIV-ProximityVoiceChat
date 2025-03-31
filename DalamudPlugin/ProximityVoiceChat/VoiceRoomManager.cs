@@ -1,6 +1,4 @@
 ﻿using AsyncAwaitBestPractices;
-using Dalamud.Game.ClientState.Objects.Enums;
-using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using Microsoft.MixedReality.WebRTC;
@@ -13,9 +11,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Numerics;
 using System.Text.Json;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace ProximityVoiceChat;
@@ -72,15 +68,12 @@ public class VoiceRoomManager : IDisposable
     private const string PeerType = "player";
 
     private string? localPlayerFullName;
-    private bool isDisposed;
 
     private readonly IDalamudPluginInterface pluginInterface;
     private readonly IClientState clientState;
     private readonly IFramework framework;
     private readonly IObjectTable objectTable;
-    private readonly IGameGui gameGui;
     private readonly Configuration configuration;
-    private readonly Spatializer spatializer;
     private readonly MapManager mapManager;
     private readonly WebRTCDataChannelHandler.IFactory dataChannelHandlerFactory;
     private readonly IAudioDeviceController audioDeviceController;
@@ -90,16 +83,12 @@ public class VoiceRoomManager : IDisposable
     private readonly CachedSound roomJoinSound;
     private readonly CachedSound roomSelfLeaveSound;
     private readonly CachedSound roomOtherLeaveSound;
-    private readonly PeriodicTimer volumeUpdateTimer = new(TimeSpan.FromMilliseconds(100));
-    private readonly SemaphoreSlim frameworkThreadSemaphore = new(1, 1);
 
     public VoiceRoomManager(IDalamudPluginInterface pluginInterface,
         IClientState clientState,
         IFramework framework,
         IObjectTable objectTable,
-        IGameGui gameGui,
         Configuration configuration,
-        Spatializer audioSpatializer,
         MapManager mapManager,
         WebRTCDataChannelHandler.IFactory dataChannelHandlerFactory,
         IAudioDeviceController audioDeviceController,
@@ -109,9 +98,7 @@ public class VoiceRoomManager : IDisposable
         this.clientState = clientState;
         this.framework = framework;
         this.objectTable = objectTable;
-        this.gameGui = gameGui;
         this.configuration = configuration;
-        this.spatializer = audioSpatializer;
         this.mapManager = mapManager;
         this.dataChannelHandlerFactory = dataChannelHandlerFactory;
         this.audioDeviceController = audioDeviceController;
@@ -137,27 +124,12 @@ public class VoiceRoomManager : IDisposable
         this.roomJoinSound = new(this.pluginInterface.GetResourcePath("join.wav"));
         this.roomOtherLeaveSound = new(this.pluginInterface.GetResourcePath("other_leave.wav"));
         this.roomSelfLeaveSound = new(this.pluginInterface.GetResourcePath("self_leave.wav"));
-
-        Task.Run(async delegate
-        {
-            while (await this.volumeUpdateTimer.WaitForNextTickAsync())
-            {
-                await frameworkThreadSemaphore.WaitAsync();
-                if (isDisposed)
-                {
-                    return;
-                }
-                this.framework.RunOnFrameworkThread(UpdatePlayerVolumes).SafeFireAndForget(ex => this.logger.Error(ex.ToString()));
-            }
-        }).SafeFireAndForget(ex => this.logger.Error(ex.ToString()));
     }
 
     public void Dispose()
     {
-        isDisposed = true;
         this.SignalingChannel?.Dispose();
         this.WebRTCManager?.Dispose();
-        this.volumeUpdateTimer.Dispose();
         GC.SuppressFinalize(this);
     }
 
@@ -269,96 +241,13 @@ public class VoiceRoomManager : IDisposable
         }).SafeFireAndForget(ex => this.logger.Error(ex.ToString()));
     }
 
-    private IEnumerable<IPlayerCharacter> GetPlayersInInstance()
-    {
-        return this.objectTable.Where(go => go.ObjectKind == ObjectKind.Player).OfType<IPlayerCharacter>();
-    }
-
     private IEnumerable<string> GetOtherPlayerNamesInInstance()
     {
-        return GetPlayersInInstance()
+        return this.objectTable.GetPlayers()
             .Select(p => p.GetPlayerFullName())
             .Where(s => s != null)
             .Where(s => s != this.clientState.GetLocalPlayerFullName())
             .Cast<string>();
-    }
-
-    private void UpdatePlayerVolumes()
-    {
-        try
-        {
-            // Debug stuff
-            unsafe
-            {
-                var renderingCamera = *FFXIVClientStructs.FFXIV.Client.Graphics.Scene.CameraManager.Instance()->CurrentCamera;
-                // renderingCamera.Rotation is always (0,0,0,1)
-                // renderingCamera.LookAtVector doesn't seem accurate
-                // renderingCamera.Vector_1 seems to only change with camera pitch
-                // renderingCamera.Position = renderingCamera.Object.Position
-                // https://github.com/NotNite/Linkpearl/blob/main/Linkpearl/Plugin.cs
-                var lookAtVector = new Vector3(renderingCamera.ViewMatrix.M13, renderingCamera.ViewMatrix.M23, renderingCamera.ViewMatrix.M33);
-                //Matrix4x4.Decompose(renderingCamera.ViewMatrix, out var scale, out var rotation, out var position);
-                this.logger.Debug("PlayerPosition {0}, CameraPosition {1}, LookAtVector {2}, CameraUp {3}",
-                    (this.clientState.LocalPlayer?.Position ?? Vector3.Zero).ToString("F2", null),
-                    renderingCamera.Position.ToString("F2", null),  // useful
-                    lookAtVector.ToString("F2", null),  // useful
-                    renderingCamera.Vector_1.ToString("F2", null)); // not useful
-            }
-
-            // Use polling to set individual channel volumes.
-            // The search is done by iterating through all GameObjects and finding any connected players out of them,
-            // so we reset all players volumes before calculating any volumes in case the players cannot be found.
-            var defaultVolume = (InPublicRoom || this.configuration.MuteOutOfMapPlayers) ? 0.0f : 1.0f;
-            this.audioDeviceController.ResetAllChannelsVolume(defaultVolume * this.configuration.MasterVolume);
-            foreach (var tp in this.TrackedPlayers.Values)
-            {
-                tp.Distance = float.NaN;
-                tp.Volume = defaultVolume;
-            }
-
-            // Conditions where volume is impossible/unnecessary to calculate
-            if (this.clientState.LocalPlayer == null)
-            {
-                return;
-            }
-            if (this.WebRTCManager == null)
-            {
-                return;
-            }
-            if (this.WebRTCManager.Peers.All(kv => kv.Value.PeerConnection.DataChannels.Count == 0))
-            {
-                return;
-            }
-
-            var thisTick = Environment.TickCount;
-
-            foreach (var player in GetPlayersInInstance())
-            {
-                var playerName = player.GetPlayerFullName();
-                if (playerName != null &&
-                    this.WebRTCManager.Peers.TryGetValue(playerName, out var peer) &&
-                    peer.PeerConnection.DataChannels.Count > 0)
-                {
-                    var trackedPlayer = this.TrackedPlayers.TryGetValue(playerName, out var tp) ? tp : null;
-                    this.spatializer.CalculateSpatialValues(player, trackedPlayer, thisTick,
-                       out var leftVolume, out var rightVolume, out var distance);
-
-                    leftVolume *= this.configuration.MasterVolume;
-                    rightVolume *= this.configuration.MasterVolume;
-
-                    this.audioDeviceController.SetChannelVolume(peer.PeerId, leftVolume, rightVolume);
-                    if (trackedPlayer != null)
-                    {
-                        trackedPlayer.Distance = distance;
-                        trackedPlayer.Volume = (leftVolume + rightVolume) * 0.5f;
-                    }
-                }
-            }
-        }
-        finally
-        {
-            this.frameworkThreadSemaphore.Release();
-        }
     }
 
     private void JoinVoiceRoom(string roomName, string roomPassword, string[]? playersInInstance)

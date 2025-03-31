@@ -39,6 +39,7 @@ public class ConfigWindow : Window, IPluginUIView, IDisposable
     public IReactiveProperty<float> AudioFalloffMinimumDistance { get; } = new ReactiveProperty<float>();
     public IReactiveProperty<float> AudioFalloffMaximumDistance { get; } = new ReactiveProperty<float>();
     public IReactiveProperty<float> AudioFalloffFactor { get; } = new ReactiveProperty<float>();
+    public IReactiveProperty<bool> EnableSpatialization { get; } = new ReactiveProperty<bool>();
     public IReactiveProperty<bool> MuteDeadPlayers { get; } = new ReactiveProperty<bool>();
     public IReactiveProperty<int> MuteDeadPlayersDelayMs { get; } = new ReactiveProperty<int>();
     public IReactiveProperty<bool> MuteOutOfMapPlayers { get; } = new ReactiveProperty<bool>();
@@ -272,6 +273,21 @@ public class ConfigWindow : Window, IPluginUIView, IDisposable
             if (ImGui.InputFloat("##AudioFalloffFactor", ref falloffFactor, 0.1f, 1.0f, "%.1f"))
             {
                 this.AudioFalloffFactor.Value = falloffFactor;
+            }
+
+            ImGui.TableNextRow(); ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding();
+            ImGui.Text("Enable Spatialization");
+            if (ImGui.IsItemHovered())
+            {
+                ImGui.SetTooltip("(Experimental) Use camera facing direction to pan incoming audio");
+            }
+            ImGui.TableNextColumn();
+            ImGui.SetNextItemWidth(ImGui.GetColumnWidth());
+            var enableSpatialization = this.EnableSpatialization.Value;
+            if (ImGui.Checkbox("##EnableSpatialization", ref enableSpatialization))
+            {
+                this.EnableSpatialization.Value = enableSpatialization;
             }
 
             ImGui.TableNextRow(); ImGui.TableNextColumn();

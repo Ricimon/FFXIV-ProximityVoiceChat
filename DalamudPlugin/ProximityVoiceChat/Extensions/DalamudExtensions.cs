@@ -1,7 +1,10 @@
-﻿using Dalamud.Game.ClientState.Objects.SubKinds;
+﻿using Dalamud.Game.ClientState.Objects.Enums;
+using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 namespace ProximityVoiceChat.Extensions;
 
@@ -27,6 +30,11 @@ public static class DalamudExtensions
             return null;
         }
         return GetPlayerFullName(localPlayer);
+    }
+
+    public static IEnumerable<IPlayerCharacter> GetPlayers(this IObjectTable objectTable)
+    {
+        return objectTable.Where(go => go.ObjectKind == ObjectKind.Player).OfType<IPlayerCharacter>();
     }
 
     public static string GetResourcePath(this IDalamudPluginInterface pluginInterface, string fileName)

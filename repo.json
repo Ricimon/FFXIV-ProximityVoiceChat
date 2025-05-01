@@ -21,22 +21,22 @@
     },
     {
         "Author": "Ricimon",
-        "Name": "LolPings",
+        "Name": "carPingus",
         "Description": "Send other players ground pings and UI information. [IN DEVELOPMENT]",
         "Punchline": "Ping stuff! [IN DEVELOPMENT]",
-        "InternalName": "LolPings",
-        "AssemblyVersion": "0.1.1.0",
-        "TestingAssemblyVersion": "0.1.1.0",
-        "RepoUrl": "https://github.com/Ricimon/FFXIV-LolPings",
-        "IconUrl": "https://raw.githubusercontent.com/Ricimon/FFXIV-LolPings/main/images/icon.png",
+        "InternalName": "carPingus",
+        "AssemblyVersion": "0.1.2.0",
+        "TestingAssemblyVersion": "0.1.2.0",
+        "RepoUrl": "https://github.com/Ricimon/FFXIV-carPingus",
+        "IconUrl": "https://raw.githubusercontent.com/Ricimon/FFXIV-carPingus/main/images/icon.png",
         "ApplicableVersion": "any",
         "DalamudApiLevel": 12,
         "IsHide": "False",
         "IsTestingExclusive": "False",
         "LastUpdate": 0,
         "DownloadCount": 0,
-        "DownloadLinkInstall": "https://github.com/Ricimon/FFXIV-LolPings/releases/download/v0.1.1-alpha/LolPings_v0.1.1.zip",
-        "DownloadLinkTesting": "https://github.com/Ricimon/FFXIV-LolPings/releases/download/v0.1.1-alpha/LolPings_v0.1.1.zip",
-        "DownloadLinkUpdate": "https://github.com/Ricimon/FFXIV-LolPings/releases/download/v0.1.1-alpha/LolPings_v0.1.1.zip"
+        "DownloadLinkInstall": "https://github.com/Ricimon/FFXIV-carPingus/releases/download/v0.1.2-alpha/carPingus_v0.1.2.zip",
+        "DownloadLinkTesting": "https://github.com/Ricimon/FFXIV-carPingus/releases/download/v0.1.2-alpha/carPingus_v0.1.2.zip",
+        "DownloadLinkUpdate": "https://github.com/Ricimon/FFXIV-carPingus/releases/download/v0.1.2-alpha/carPingus_v0.1.2.zip"
     }
 ]

@@ -18,5 +18,25 @@
         "DownloadLinkInstall": "https://github.com/Ricimon/FFXIV-ProximityVoiceChat/releases/download/v0.4.7-beta/ProximityVoiceChat_v0.4.7.zip",
         "DownloadLinkTesting": "https://github.com/Ricimon/FFXIV-ProximityVoiceChat/releases/download/v0.4.7-beta/ProximityVoiceChat_v0.4.7.zip",
         "DownloadLinkUpdate": "https://github.com/Ricimon/FFXIV-ProximityVoiceChat/releases/download/v0.4.7-beta/ProximityVoiceChat_v0.4.7.zip"
-    }
+    },
+	{
+		"Author": "Ricimon",
+        "Name": "LolPings",
+        "Description": "Send other players ground pings and UI information. [IN DEVELOPMENT]",
+        "Punchline": "Ping stuff!",
+        "InternalName": "LolPings",
+        "AssemblyVersion": "0.1.0.0",
+        "TestingAssemblyVersion": "0.1.0.0",
+        "RepoUrl": "https://github.com/Ricimon/FFXIV-LolPings",
+        "IconUrl": "https://raw.githubusercontent.com/Ricimon/FFXIV-LolPings/main/images/icon.png",
+        "ApplicableVersion": "any",
+        "DalamudApiLevel": 12,
+        "IsHide": "False",
+        "IsTestingExclusive": "False",
+        "LastUpdate": 0,
+        "DownloadCount": 0,
+        "DownloadLinkInstall": "https://github.com/Ricimon/FFXIV-LolPings/releases/download/v0.1.0-alpha/LolPings_v0.1.0.zip",
+        "DownloadLinkTesting": "https://github.com/Ricimon/FFXIV-LolPings/releases/download/v0.1.0-alpha/LolPings_v0.1.0.zip",
+        "DownloadLinkUpdate": "https://github.com/Ricimon/FFXIV-LolPings/releases/download/v0.1.0-alpha/LolPings_v0.1.0.zip"
+	}
 ]

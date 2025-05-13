@@ -25,8 +25,8 @@
         "Description": "Send other players ground pings and UI information. [IN DEVELOPMENT]",
         "Punchline": "Ping stuff! [IN DEVELOPMENT]",
         "InternalName": "SmartPings",
-        "AssemblyVersion": "0.1.7.0",
-        "TestingAssemblyVersion": "0.1.7.0",
+        "AssemblyVersion": "0.1.8.0",
+        "TestingAssemblyVersion": "0.1.8.0",
         "RepoUrl": "https://github.com/Ricimon/FFXIV-SmartPings",
         "IconUrl": "https://raw.githubusercontent.com/Ricimon/FFXIV-SmartPings/main/images/icon.png",
         "ApplicableVersion": "any",
@@ -35,8 +35,8 @@
         "IsTestingExclusive": "False",
         "LastUpdate": 0,
         "DownloadCount": 0,
-        "DownloadLinkInstall": "https://github.com/Ricimon/FFXIV-SmartPings/releases/download/v0.1.7-alpha/SmartPings_v0.1.7.zip",
-        "DownloadLinkTesting": "https://github.com/Ricimon/FFXIV-SmartPings/releases/download/v0.1.7-alpha/SmartPings_v0.1.7.zip",
-        "DownloadLinkUpdate": "https://github.com/Ricimon/FFXIV-SmartPings/releases/download/v0.1.7-alpha/SmartPings_v0.1.7.zip"
+        "DownloadLinkInstall": "https://github.com/Ricimon/FFXIV-SmartPings/releases/download/v0.1.8-alpha/SmartPings_v0.1.8.zip",
+        "DownloadLinkTesting": "https://github.com/Ricimon/FFXIV-SmartPings/releases/download/v0.1.8-alpha/SmartPings_v0.1.8.zip",
+        "DownloadLinkUpdate": "https://github.com/Ricimon/FFXIV-SmartPings/releases/download/v0.1.8-alpha/SmartPings_v0.1.8.zip"
     }
 ]

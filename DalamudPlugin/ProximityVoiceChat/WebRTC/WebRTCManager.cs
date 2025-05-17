@@ -48,7 +48,8 @@ public class WebRTCManager : IDisposable
         this.verbose = verbose;
         this.config = new PeerConnectionConfiguration
         {
-            IceServers = [ new() { Urls = [string.Empty] } ]
+            IceServers = [ new() { Urls = [string.Empty] } ],
+            IceTransportType = IceTransportType.Relay,
             // TURN config options are to be filled from Signaling Server response
         };
     }

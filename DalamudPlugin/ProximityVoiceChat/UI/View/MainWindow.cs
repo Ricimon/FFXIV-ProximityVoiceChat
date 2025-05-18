@@ -1,5 +1,16 @@
-﻿using Dalamud.Interface.Windowing;
+﻿using Dalamud.Interface;
+using Dalamud.Interface.Utility;
+using Dalamud.Interface.Utility.Raii;
+using Dalamud.Interface.Windowing;
+using Dalamud.Plugin;
+using Dalamud.Plugin.Services;
 using ImGuiNET;
+using Microsoft.MixedReality.WebRTC;
+using ProximityVoiceChat.Extensions;
+using ProximityVoiceChat.Input;
+using ProximityVoiceChat.UI.Presenter;
+using ProximityVoiceChat.UI.Util;
+using ProximityVoiceChat.WebRTC;
 using Reactive.Bindings;
 using System;
 using System.Linq;
@@ -7,19 +18,7 @@ using System.Numerics;
 using System.Reactive;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
-using ProximityVoiceChat.UI.Util;
-using Microsoft.MixedReality.WebRTC;
 using System.Text;
-using Dalamud.Plugin.Services;
-using Dalamud.Plugin;
-using System.IO;
-using ProximityVoiceChat.WebRTC;
-using ProximityVoiceChat.Input;
-using Dalamud.Interface.Utility.Raii;
-using Dalamud.Interface.Utility;
-using Dalamud.Interface;
-using ProximityVoiceChat.UI.Presenter;
-using ProximityVoiceChat.Extensions;
 
 namespace ProximityVoiceChat.UI.View;
 
@@ -53,38 +52,41 @@ public class MainWindow : Window, IPluginUIView, IDisposable
     private readonly WindowSystem windowSystem;
     private readonly IDalamudPluginInterface pluginInterface;
     private readonly ITextureProvider textureProvider;
+    private readonly IClientState clientState;
     private readonly PushToTalkController pushToTalkController;
     private readonly IAudioDeviceController audioDeviceController;
     private readonly VoiceRoomManager voiceRoomManager;
     private readonly MapManager mapChangeHandler;
     private readonly Configuration configuration;
+    private readonly ConfigWindow configWindow;
     private readonly ConfigWindowPresenter configWindowPresenter;
-    private readonly IClientState clientState;
 
     private string? createPrivateRoomButtonText;
+    private bool configTabSelected;
 
     public MainWindow(
         WindowSystem windowSystem,
         IDalamudPluginInterface pluginInterface,
         ITextureProvider textureProvider,
+        IClientState clientState,
         PushToTalkController pushToTalkController,
         VoiceRoomManager voiceRoomManager,
         MapManager mapChangeHandler,
         Configuration configuration,
-        ConfigWindowPresenter configWindowPresenter, 
-        IClientState clientState) : base(
-        PluginInitializer.Name)
+        ConfigWindow configWindow,
+        ConfigWindowPresenter configWindowPresenter) : base(PluginInitializer.Name)
     {
-        this.windowSystem = windowSystem ?? throw new ArgumentNullException(nameof(windowSystem));
-        this.pluginInterface = pluginInterface ?? throw new ArgumentNullException(nameof(pluginInterface));
-        this.textureProvider = textureProvider ?? throw new ArgumentNullException(nameof(textureProvider));
-        this.pushToTalkController = pushToTalkController ?? throw new ArgumentNullException(nameof(pushToTalkController));
+        this.windowSystem = windowSystem;
+        this.pluginInterface = pluginInterface;
+        this.textureProvider = textureProvider;
+        this.clientState = clientState;
+        this.pushToTalkController = pushToTalkController;
         this.audioDeviceController = pushToTalkController;
-        this.voiceRoomManager = voiceRoomManager ?? throw new ArgumentNullException(nameof(voiceRoomManager));
-        this.mapChangeHandler = mapChangeHandler ?? throw new ArgumentNullException(nameof(mapChangeHandler));
-        this.configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
-        this.configWindowPresenter = configWindowPresenter ?? throw new ArgumentNullException(nameof(configWindowPresenter));
-        this.clientState = clientState ?? throw new ArgumentNullException(nameof(clientState));
+        this.voiceRoomManager = voiceRoomManager;
+        this.mapChangeHandler = mapChangeHandler;
+        this.configuration = configuration;
+        this.configWindow = configWindow;
+        this.configWindowPresenter = configWindowPresenter;
         windowSystem.AddWindow(this);
     }
 
@@ -122,57 +124,20 @@ public class MainWindow : Window, IPluginUIView, IDisposable
             var gearIcon = FontAwesomeIcon.Cog.ToIconString();
             ImGui.SameLine(ImGui.GetWindowContentRegionMax().X - ImGui.GetWindowContentRegionMin().X - ImGuiHelpers.GetButtonSize(gearIcon).X);
             ImGui.SetCursorPosY(ImGui.GetCursorPosY() - 5);
-            if (ImGui.Button(gearIcon)) this.configWindowPresenter.View.Visible = true;
+            if (ImGui.Button(gearIcon)) { configTabSelected = true; }
         }
 
-        if (ImGui.IsItemHovered()) 
+        if (ImGui.IsItemHovered())
         {
             ImGui.SetTooltip("Configuration");
         }
 
         DrawPublicTab();
         DrawPrivateTab();
-
-        //var indent = 10;
-        //ImGui.Indent(indent);
-
-        //ImGui.Indent(-indent);
-
-        ImGui.Dummy(new Vector2(0.0f, 5.0f)); // ---------------
-
-        if (ImGui.ImageButton(GetMicrophoneImage(this.audioDeviceController.MuteMic, true), new Vector2(20, 20)))
-        {
-            this.muteMic.OnNext(!this.audioDeviceController.MuteMic);
-        }
-        if (ImGui.IsItemHovered())
-        {
-            ImGui.BeginTooltip();
-            ImGui.Text(this.audioDeviceController.MuteMic ? "Unmute Microphone" : "Mute Microphone");
-            ImGui.EndTooltip();
-        }
-        ImGui.SameLine();
-        if (ImGui.ImageButton(GetHeadphonesImage(this.audioDeviceController.Deafen, true), new Vector2(20, 20)))
-        {
-            this.deafen.OnNext(!this.audioDeviceController.Deafen);
-        }
-        if (ImGui.IsItemHovered())
-        {
-            ImGui.BeginTooltip();
-            ImGui.Text(this.audioDeviceController.Deafen ? "Undeafen" : "Deafen");
-            ImGui.EndTooltip();
-        }
-
-        ImGui.Dummy(new Vector2(0.0f, 5.0f)); // ---------------
-
-        if (this.voiceRoomManager.InRoom)
-        {
-            DrawVoiceRoom();
-            ImGui.Dummy(new Vector2(0.0f, 5.0f)); // ---------------
-        }
-
+        DrawConfigTab();
     }
 
-    private void DrawPublicTab() 
+    private void DrawPublicTab()
     {
         using var publicTab = ImRaii.TabItem("Public room");
         if (!publicTab) return;
@@ -191,7 +156,7 @@ public class MainWindow : Window, IPluginUIView, IDisposable
 #endif
 
         ImGui.BeginDisabled(this.voiceRoomManager.ShouldBeInRoom);
-        if (ImGui.Button("Join Public Voice Room")) 
+        if (ImGui.Button("Join Public Voice Room"))
         {
             this.joinVoiceRoom.OnNext(Unit.Default);
         }
@@ -204,9 +169,14 @@ public class MainWindow : Window, IPluginUIView, IDisposable
             using var c = ImRaii.PushColor(ImGuiCol.Text, Vector4Colors.Red);
             ImGui.Text("Unknown error (see /xllog)");
         }
+
+        ImGui.Dummy(new Vector2(0.0f, 5.0f)); // ---------------
+        DrawDeviceControls();
+        ImGui.Dummy(new Vector2(0.0f, 5.0f)); // ---------------
+        if (this.voiceRoomManager.InRoom) { DrawVoiceRoom(); }
     }
 
-    private void DrawPrivateTab() 
+    private void DrawPrivateTab()
     {
         using var privateTab = ImRaii.TabItem("Private room");
         if (!privateTab) return;
@@ -215,8 +185,8 @@ public class MainWindow : Window, IPluginUIView, IDisposable
 
         ImGuiInputTextFlags readOnlyIfInRoom = this.voiceRoomManager.InRoom ? ImGuiInputTextFlags.ReadOnly : ImGuiInputTextFlags.None;
         string roomName = this.RoomName.Value;
-         
-        if (ImGui.InputText("Room Name", ref roomName, 100, ImGuiInputTextFlags.AutoSelectAll | readOnlyIfInRoom)) 
+
+        if (ImGui.InputText("Room Name", ref roomName, 100, ImGuiInputTextFlags.AutoSelectAll | readOnlyIfInRoom))
         {
             this.RoomName.Value = roomName;
         }
@@ -270,6 +240,36 @@ public class MainWindow : Window, IPluginUIView, IDisposable
             {
                 ImGui.Text("Unknown error (see /xllog)");
             }
+        }
+
+        ImGui.Dummy(new Vector2(0.0f, 5.0f)); // ---------------
+        DrawDeviceControls();
+        ImGui.Dummy(new Vector2(0.0f, 5.0f)); // ---------------
+        if (this.voiceRoomManager.InRoom) { DrawVoiceRoom(); }
+    }
+
+    private void DrawDeviceControls()
+    {
+        if (ImGui.ImageButton(GetMicrophoneImage(this.audioDeviceController.MuteMic, true), new Vector2(20, 20)))
+        {
+            this.muteMic.OnNext(!this.audioDeviceController.MuteMic);
+        }
+        if (ImGui.IsItemHovered())
+        {
+            ImGui.BeginTooltip();
+            ImGui.Text(this.audioDeviceController.MuteMic ? "Unmute Microphone" : "Mute Microphone");
+            ImGui.EndTooltip();
+        }
+        ImGui.SameLine();
+        if (ImGui.ImageButton(GetHeadphonesImage(this.audioDeviceController.Deafen, true), new Vector2(20, 20)))
+        {
+            this.deafen.OnNext(!this.audioDeviceController.Deafen);
+        }
+        if (ImGui.IsItemHovered())
+        {
+            ImGui.BeginTooltip();
+            ImGui.Text(this.audioDeviceController.Deafen ? "Undeafen" : "Deafen");
+            ImGui.EndTooltip();
         }
     }
 
@@ -479,7 +479,7 @@ public class MainWindow : Window, IPluginUIView, IDisposable
                 ImGui.SameLine();
                 ImGui.SetCursorPosX(ImGui.GetCursorPosX() - 0.2f * iconSize.X);
                 ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 0.5f * (ImGui.GetTextLineHeight() - iconSize.Y));
-                ImGui.Image(GetHeadphonesImage(true, false),  iconSize);
+                ImGui.Image(GetHeadphonesImage(true, false), iconSize);
             }
             if (index == 0)
             {
@@ -518,5 +518,12 @@ public class MainWindow : Window, IPluginUIView, IDisposable
     {
         var imageName = deafened ? (self ? "headphones-deafen-self.png" : "headphones-deafen.png") : "headphones.png";
         return this.textureProvider.GetFromFile(this.pluginInterface.GetResourcePath(imageName)).GetWrapOrDefault()?.ImGuiHandle ?? default;
+    }
+
+    private void DrawConfigTab()
+    {
+        using var configTab = ImRaii.TabItem("Config", this.configTabSelected ? ImGuiTabItemFlags.SetSelected : default);
+        this.configWindow.Draw(configTab.Success);
+        this.configTabSelected = false;
     }
 }

@@ -1,23 +1,19 @@
 ﻿using Dalamud.Game.Command;
 using Dalamud.Plugin.Services;
-using System;
 using ProximityVoiceChat.UI.Presenter;
+using System;
 
 namespace ProximityVoiceChat;
 
 public class CommandDispatcher(
     ICommandManager commandManager,
-    MainWindowPresenter mainWindowPresenter,
-    ConfigWindowPresenter configWindowPresenter) : IDalamudHook
+    MainWindowPresenter mainWindowPresenter) : IDalamudHook
 {
     private const string commandName = "/proximityvoicechat";
     private const string commandNameAlt = "/pvc";
-    private const string configCommandName = "/proximityvoicechatconfig";
-    private const string configCommandNameAlt = "/pvcc";
 
-    private readonly ICommandManager commandManager = commandManager ?? throw new ArgumentNullException(nameof(commandManager));
-    private readonly MainWindowPresenter mainWindowPresenter = mainWindowPresenter ?? throw new ArgumentNullException(nameof(mainWindowPresenter));
-    private readonly ConfigWindowPresenter configWindowPresenter = configWindowPresenter ?? throw new ArgumentNullException(nameof(configWindowPresenter));
+    private readonly ICommandManager commandManager = commandManager;
+    private readonly MainWindowPresenter mainWindowPresenter = mainWindowPresenter;
 
     public void HookToDalamud()
     {
@@ -29,22 +25,13 @@ public class CommandDispatcher(
         {
             HelpMessage = "Open the ProximityVoiceChat window"
         });
-        this.commandManager.AddHandler(configCommandName, new CommandInfo(OnConfigCommand)
-        {
-            HelpMessage = "Open the ProximityVoiceChat config window"
-        });
-        this.commandManager.AddHandler(configCommandNameAlt, new CommandInfo(OnConfigCommand)
-        {
-            HelpMessage = "Open the ProximityVoiceChat config window"
-        });
     }
 
     public void Dispose()
     {
         this.commandManager.RemoveHandler(commandName);
         this.commandManager.RemoveHandler(commandNameAlt);
-        this.commandManager.RemoveHandler(configCommandName);
-        this.commandManager.RemoveHandler(configCommandNameAlt);
+        GC.SuppressFinalize(this);
     }
 
     private void OnCommand(string command, string args)
@@ -56,10 +43,5 @@ public class CommandDispatcher(
     private void ShowMainWindow()
     {
         this.mainWindowPresenter.View.Visible = true;
-    }
-
-    private void OnConfigCommand(string command, string args)
-    {
-        this.configWindowPresenter.View.Visible = true;
     }
 }

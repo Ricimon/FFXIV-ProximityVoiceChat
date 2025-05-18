@@ -1,7 +1,7 @@
 ﻿using Dalamud.Interface.Windowing;
 using Dalamud.Plugin;
-using System;
 using ProximityVoiceChat.UI.Presenter;
+using System;
 
 namespace ProximityVoiceChat.UI;
 
@@ -11,22 +11,19 @@ public class PluginUIContainer : IDalamudHook
 {
     private readonly IPluginUIPresenter[] pluginUIPresenters;
     private readonly MainWindowPresenter mainWindowPresenter;
-    private readonly ConfigWindowPresenter configWindowPresenter;
     private readonly IDalamudPluginInterface pluginInterface;
     private readonly WindowSystem windowSystem;
 
     public PluginUIContainer(
         IPluginUIPresenter[] pluginUIPresenters,
         MainWindowPresenter mainWindowPresenter,
-        ConfigWindowPresenter configWindowPresenter,
         IDalamudPluginInterface pluginInterface,
         WindowSystem windowSystem)
     {
-        this.pluginUIPresenters = pluginUIPresenters ?? throw new ArgumentNullException(nameof(pluginUIPresenters));
-        this.mainWindowPresenter = mainWindowPresenter ?? throw new ArgumentNullException(nameof(mainWindowPresenter));
-        this.configWindowPresenter = configWindowPresenter ?? throw new ArgumentNullException(nameof(configWindowPresenter));
-        this.pluginInterface = pluginInterface ?? throw new ArgumentNullException(nameof(pluginInterface));
-        this.windowSystem = windowSystem ?? throw new ArgumentNullException(nameof(windowSystem));
+        this.pluginUIPresenters = pluginUIPresenters;
+        this.mainWindowPresenter = mainWindowPresenter;
+        this.pluginInterface = pluginInterface;
+        this.windowSystem = windowSystem;
 
         foreach (var pluginUIPresenter in this.pluginUIPresenters)
         {
@@ -38,7 +35,6 @@ public class PluginUIContainer : IDalamudHook
     {
         this.pluginInterface.UiBuilder.Draw -= Draw;
         this.pluginInterface.UiBuilder.OpenMainUi -= ShowMainWindow;
-        this.pluginInterface.UiBuilder.OpenConfigUi -= ShowConfigWindow;
         GC.SuppressFinalize(this);
     }
 
@@ -46,7 +42,6 @@ public class PluginUIContainer : IDalamudHook
     {
         this.pluginInterface.UiBuilder.Draw += Draw;
         this.pluginInterface.UiBuilder.OpenMainUi += ShowMainWindow;
-        this.pluginInterface.UiBuilder.OpenConfigUi += ShowConfigWindow;
     }
 
     public void Draw()
@@ -67,10 +62,5 @@ public class PluginUIContainer : IDalamudHook
     private void ShowMainWindow()
     {
         this.mainWindowPresenter.View.Visible = true;
-    }
-
-    private void ShowConfigWindow() 
-    {
-        this.configWindowPresenter.View.Visible = true;
     }
 }

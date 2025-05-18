@@ -52,8 +52,8 @@ public class PluginModule : NinjectModule
         Bind<WindowSystem>().ToMethod(_ => new(PluginInitializer.Name)).InSingletonScope();
         Bind<IPluginUIView, MainWindow>().To<MainWindow>().InSingletonScope();
         Bind<IPluginUIPresenter, MainWindowPresenter>().To<MainWindowPresenter>().InSingletonScope();
-        Bind<IPluginUIView, ConfigWindow>().To<ConfigWindow>().InSingletonScope();
-        Bind<IPluginUIPresenter, ConfigWindowPresenter>().To<ConfigWindowPresenter>().InSingletonScope();
+        Bind<ConfigWindow>().ToSelf().InSingletonScope();
+        Bind<ConfigWindowPresenter>().ToSelf().InSingletonScope();
 
         Bind<ILogger>().To<DalamudLogger>();
         Bind<DalamudLoggerFactory>().ToSelf();

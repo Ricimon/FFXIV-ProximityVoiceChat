@@ -1,30 +1,21 @@
 ﻿using Dalamud.Interface.Utility.Raii;
-using Dalamud.Interface.Windowing;
 using ImGuiNET;
 using ProximityVoiceChat.Input;
-using ProximityVoiceChat.UI.Util;
 using ProximityVoiceChat.Log;
+using ProximityVoiceChat.UI.Util;
 using Reactive.Bindings;
 using System;
+using System.Diagnostics;
+using System.Linq;
 using System.Numerics;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
-using System.Linq;
-using System.Diagnostics;
 using WindowsInput.Events;
 
 namespace ProximityVoiceChat.UI.View;
 
-public class ConfigWindow : Window, IPluginUIView, IDisposable
+public class ConfigWindow
 {
-    // this extra bool exists for ImGui, since you can't ref a property
-    private bool visible = false;
-    public bool Visible
-    {
-        get => this.visible;
-        set => this.visible = value;
-    }
-
     public IReactiveProperty<int> SelectedAudioInputDeviceIndex { get; } = new ReactiveProperty<int>(-1);
     public IReactiveProperty<int> SelectedAudioOutputDeviceIndex { get; } = new ReactiveProperty<int>(-1);
     public IReactiveProperty<bool> PlayingBackMicAudio { get; } = new ReactiveProperty<bool>();
@@ -52,7 +43,6 @@ public class ConfigWindow : Window, IPluginUIView, IDisposable
     private string[]? inputDevices;
     private string[]? outputDevices;
 
-    private readonly WindowSystem windowSystem;
     private readonly IAudioDeviceController audioDeviceController;
     private readonly VoiceRoomManager voiceRoomManager;
     private readonly Configuration configuration;
@@ -60,44 +50,25 @@ public class ConfigWindow : Window, IPluginUIView, IDisposable
     private readonly string[] allLoggingLevels;
 
     // Direct application logic is being placed into this UI script because this is debug UI
-    public ConfigWindow(WindowSystem windowSystem,
-        PushToTalkController pushToTalkController,
+    public ConfigWindow(PushToTalkController pushToTalkController,
         VoiceRoomManager voiceRoomManager,
-        Configuration configuration) : base(
-        $"{PluginInitializer.Name} Config")
+        Configuration configuration)
     {
-        this.windowSystem = windowSystem ?? throw new ArgumentNullException(nameof(windowSystem));
-        this.audioDeviceController = pushToTalkController ?? throw new ArgumentNullException(nameof(pushToTalkController));
-        this.voiceRoomManager = voiceRoomManager ?? throw new ArgumentNullException(nameof(voiceRoomManager));
-        this.configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
-        this.falloffTypes = Enum.GetNames(typeof(AudioFalloffModel.FalloffType));
-        this.allLoggingLevels = LogLevel.AllLoggingLevels.Select(l => l.Name).ToArray();
-        windowSystem.AddWindow(this);
+        this.audioDeviceController = pushToTalkController;
+        this.voiceRoomManager = voiceRoomManager;
+        this.configuration = configuration;
+        this.falloffTypes = Enum.GetNames<AudioFalloffModel.FalloffType>();
+        this.allLoggingLevels = [.. LogLevel.AllLoggingLevels.Select(l => l.Name)];
     }
 
-    public override void Draw()
+    public void Draw(bool visible)
     {
-        if (!Visible)
+        if (!visible)
         {
             KeybindBeingEdited.Value = Keybind.None;
             return;
         }
-
-        ImGui.SetNextWindowSize(new Vector2(350, 400), ImGuiCond.FirstUseEver);
-        ImGui.SetNextWindowSizeConstraints(new Vector2(350, 250), new Vector2(float.MaxValue, float.MaxValue));
-        if (ImGui.Begin("ProximityVoiceChat Config", ref this.visible, ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse))
-        {
-            DrawContents();
-        }
-        ImGui.End();
-    }
-
-    public void Dispose()
-    {
-        inputDevices = null;
-        outputDevices = null;
-        windowSystem.RemoveWindow(this);
-        GC.SuppressFinalize(this);
+        DrawContents();
     }
 
     private void DrawContents()
@@ -173,8 +144,15 @@ public class ConfigWindow : Window, IPluginUIView, IDisposable
             this.SuppressNoise.Value = suppressNoise;
         }
 
-        DrawKeybindEdit(Keybind.MuteMic, this.configuration.MuteMicKeybind, "Mute Microphone Keybind");
-        DrawKeybindEdit(Keybind.Deafen, this.configuration.DeafenKeybind, "Deafen Keybind");
+        ImGui.Dummy(new Vector2(0.0f, 5.0f)); // ---------------
+
+        ImGui.Text("Keybinds");
+        ImGui.SameLine(); Common.HelpMarker("Right click to clear a keybind.");
+        using (ImRaii.PushIndent())
+        {
+            DrawKeybindEdit(Keybind.MuteMic, this.configuration.MuteMicKeybind, "Mute Microphone Keybind");
+            DrawKeybindEdit(Keybind.Deafen, this.configuration.DeafenKeybind, "Deafen Keybind");
+        }
     }
 
     private void DrawKeybindEdit(Keybind keybind, KeyCode currentBinding, string label)
@@ -383,7 +361,8 @@ public class ConfigWindow : Window, IPluginUIView, IDisposable
         ImGui.PushStyleColor(ImGuiCol.Button, new Vector4(1.0f, 0.39f, 0.20f, 1));
         ImGui.PushStyleColor(ImGuiCol.ButtonHovered, new Vector4(1.0f, 0.49f, 0.30f, 1));
         ImGui.PushStyleColor(ImGuiCol.ButtonActive, new Vector4(0.92f, 0.36f, 0.18f, 1));
-        if (ImGui.Button("Support on Ko-fi")) {
+        if (ImGui.Button("Support on Ko-fi"))
+        {
             Process.Start(new ProcessStartInfo { FileName = "https://ko-fi.com/ricimon", UseShellExecute = true });
         }
         ImGui.PopStyleColor(3);

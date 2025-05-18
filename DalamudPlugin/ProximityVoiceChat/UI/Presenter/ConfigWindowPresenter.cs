@@ -1,9 +1,9 @@
-﻿using System;
-using Dalamud.Plugin.Services;
+﻿using Dalamud.Plugin.Services;
 using ProximityVoiceChat.Input;
 using ProximityVoiceChat.Log;
 using ProximityVoiceChat.UI.View;
 using Reactive.Bindings;
+using System;
 using WindowsInput.Events;
 
 namespace ProximityVoiceChat.UI.Presenter;
@@ -16,26 +16,19 @@ public class ConfigWindowPresenter(
     VoiceRoomManager voiceRoomManager,
     InputEventSource inputEventSource,
     InputManager inputManager,
-    ILogger logger) : IPluginUIPresenter, IDisposable
+    ILogger logger)
 {
-    public IPluginUIView View => this.view;
-
-    private readonly ConfigWindow view = view ?? throw new ArgumentNullException(nameof(view));
-    private readonly Configuration configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
-    private readonly IFramework framework = framework ?? throw new ArgumentNullException(nameof(framework));
-    private readonly PushToTalkController pushToTalkController = pushToTalkController ?? throw new ArgumentNullException(nameof(pushToTalkController));
+    private readonly ConfigWindow view = view;
+    private readonly Configuration configuration = configuration;
+    private readonly IFramework framework = framework;
+    private readonly PushToTalkController pushToTalkController = pushToTalkController;
     private readonly IAudioDeviceController audioDeviceController = pushToTalkController;
-    private readonly VoiceRoomManager voiceRoomManager = voiceRoomManager ?? throw new ArgumentNullException(nameof(voiceRoomManager));
-    private readonly InputEventSource inputEventSource = inputEventSource ?? throw new ArgumentNullException(nameof(inputEventSource));
-    private readonly InputManager inputManager = inputManager ?? throw new ArgumentNullException(nameof(inputManager));
-    private readonly ILogger logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    private readonly VoiceRoomManager voiceRoomManager = voiceRoomManager;
+    private readonly InputEventSource inputEventSource = inputEventSource;
+    private readonly InputManager inputManager = inputManager;
+    private readonly ILogger logger = logger;
 
     private bool keyDownListenerSubscribed;
-
-    public void Dispose()
-    {
-        GC.SuppressFinalize(this);
-    }
 
     public void SetupBindings()
     {
@@ -170,6 +163,5 @@ public class ConfigWindowPresenter(
             this.configuration.Save();
             this.inputManager.UpdateListeners();
         });
-
     }
 }

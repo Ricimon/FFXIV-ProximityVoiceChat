@@ -1,17 +1,18 @@
-﻿using Dalamud.Plugin.Services;
+﻿using AsyncAwaitBestPractices;
+using Dalamud.Plugin.Services;
+using ProximityVoiceChat.Extensions;
+using ProximityVoiceChat.Input;
+using ProximityVoiceChat.Log;
+using ProximityVoiceChat.UI.View;
 using Reactive.Bindings;
 using System;
 using System.Reactive.Linq;
-using ProximityVoiceChat.Log;
-using ProximityVoiceChat.UI.View;
-using ProximityVoiceChat.Extensions;
-using ProximityVoiceChat.Input;
-using AsyncAwaitBestPractices;
 
 namespace ProximityVoiceChat.UI.Presenter;
 
 public class MainWindowPresenter(
     MainWindow view,
+    ConfigWindowPresenter configWindowPresenter,
     Configuration configuration,
     IClientState clientState,
     IAudioDeviceController audioDeviceController,
@@ -20,17 +21,19 @@ public class MainWindowPresenter(
 {
     public IPluginUIView View => this.view;
 
-    private readonly MainWindow view = view ?? throw new ArgumentNullException(nameof(view));
-    private readonly Configuration configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
-    private readonly IClientState clientState = clientState ?? throw new ArgumentNullException(nameof(clientState));
-    private readonly IAudioDeviceController audioDeviceController = audioDeviceController ?? throw new ArgumentNullException(nameof(audioDeviceController));
-    private readonly VoiceRoomManager voiceRoomManager = voiceRoomManager ?? throw new ArgumentNullException(nameof(voiceRoomManager));
-    private readonly ILogger logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    private readonly MainWindow view = view;
+    private readonly ConfigWindowPresenter configWindowPresenter = configWindowPresenter;
+    private readonly Configuration configuration = configuration;
+    private readonly IClientState clientState = clientState;
+    private readonly IAudioDeviceController audioDeviceController = audioDeviceController;
+    private readonly VoiceRoomManager voiceRoomManager = voiceRoomManager;
+    private readonly ILogger logger = logger;
 
     public void SetupBindings()
     {
         BindVariables();
         BindActions();
+        this.configWindowPresenter.SetupBindings();
     }
 
     private void BindVariables()
@@ -111,5 +114,4 @@ public class MainWindowPresenter(
         }
         reactiveProperty.Subscribe(dataUpdateAction);
     }
-
 }

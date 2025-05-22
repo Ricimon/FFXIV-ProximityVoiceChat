@@ -124,12 +124,15 @@ public class VoiceRoomManager : IDisposable
         this.roomJoinSound = new(this.pluginInterface.GetResourcePath("join.wav"));
         this.roomOtherLeaveSound = new(this.pluginInterface.GetResourcePath("other_leave.wav"));
         this.roomSelfLeaveSound = new(this.pluginInterface.GetResourcePath("self_leave.wav"));
+
+        this.clientState.Logout += OnLogout;
     }
 
     public void Dispose()
     {
         this.SignalingChannel?.Dispose();
         this.WebRTCManager?.Dispose();
+        this.clientState.Logout -= OnLogout;
         GC.SuppressFinalize(this);
     }
 
@@ -241,6 +244,11 @@ public class VoiceRoomManager : IDisposable
         }).SafeFireAndForget(ex => this.logger.Error(ex.ToString()));
     }
 
+    private void OnLogout(int type, int code)
+    {
+        LeaveVoiceRoom(false);
+    }
+
     private IEnumerable<string> GetOtherPlayerNamesInInstance()
     {
         return this.objectTable.GetPlayers()
@@ -277,12 +285,19 @@ public class VoiceRoomManager : IDisposable
         this.localPlayerFullName = playerName;
 
         this.logger.Trace("Creating SignalingChannel class with peerId {0}", playerName);
-        this.SignalingChannel ??= new SignalingChannel(playerName,
-            PeerType,
-            this.loadConfig.signalingServerUrl,
-            this.loadConfig.signalingServerToken,
-            this.logger,
-            true);
+        if (this.SignalingChannel == null)
+        {
+            this.SignalingChannel = new SignalingChannel(playerName,
+                PeerType,
+                this.loadConfig.signalingServerUrl,
+                this.loadConfig.signalingServerToken,
+                this.logger,
+                true);
+        }
+        else
+        {
+            this.SignalingChannel.PeerId = playerName;
+        }
         if (this.WebRTCManager == null)
         {
             var options = new WebRTCOptions()

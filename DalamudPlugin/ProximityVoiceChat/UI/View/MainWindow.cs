@@ -1,4 +1,11 @@
-﻿using Dalamud.Interface;
+﻿using System;
+using System.Linq;
+using System.Numerics;
+using System.Reactive;
+using System.Reactive.Linq;
+using System.Reactive.Subjects;
+using System.Text;
+using Dalamud.Interface;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
 using Dalamud.Interface.Windowing;
@@ -12,13 +19,6 @@ using ProximityVoiceChat.UI.Presenter;
 using ProximityVoiceChat.UI.Util;
 using ProximityVoiceChat.WebRTC;
 using Reactive.Bindings;
-using System;
-using System.Linq;
-using System.Numerics;
-using System.Reactive;
-using System.Reactive.Linq;
-using System.Reactive.Subjects;
-using System.Text;
 
 namespace ProximityVoiceChat.UI.View;
 
@@ -162,12 +162,20 @@ public class MainWindow : Window, IPluginUIView, IDisposable
         }
         ImGui.EndDisabled();
 
-        var dcMsg = this.voiceRoomManager.SignalingChannel?.LatestServerDisconnectMessage;
-        if (dcMsg != null)
+        var errorMsg = this.voiceRoomManager.SignalingChannel?.LatestError;
+        if (errorMsg != null)
         {
             ImGui.SameLine();
             using var c = ImRaii.PushColor(ImGuiCol.Text, Vector4Colors.Red);
-            ImGui.Text("Unknown error (see /xllog)");
+            switch(errorMsg)
+            {
+                case SignalingChannelError.UnsupportedOperatingSystem:
+                    ImGui.Text("Only supported on Windows");
+                    break;
+                default:
+                    ImGui.Text("Unknown error (see /xllog)");
+                    break;
+            }
         }
 
         ImGui.Dummy(new Vector2(0.0f, 5.0f)); // ---------------
@@ -222,23 +230,25 @@ public class MainWindow : Window, IPluginUIView, IDisposable
         }
         ImGui.EndDisabled();
 
-        var dcMsg = this.voiceRoomManager.SignalingChannel?.LatestServerDisconnectMessage;
-        if (dcMsg != null)
+        var errorMsg = this.voiceRoomManager.SignalingChannel?.LatestError;
+        if (errorMsg != null)
         {
             ImGui.SameLine();
             using var c = ImRaii.PushColor(ImGuiCol.Text, Vector4Colors.Red);
-            // this is kinda scuffed but will do for now
-            if (dcMsg.Contains("incorrect password"))
+            switch(errorMsg)
             {
-                ImGui.Text("Incorrect password");
-            }
-            else if (dcMsg.Contains("room does not exist"))
-            {
-                ImGui.Text("Room not found");
-            }
-            else
-            {
-                ImGui.Text("Unknown error (see /xllog)");
+                case SignalingChannelError.IncorrectPrivateRoomPassword:
+                    ImGui.Text("Incorrect password");
+                    break;
+                case SignalingChannelError.NonexistentPrivateRoom:
+                    ImGui.Text("Room not found");
+                    break;
+                case SignalingChannelError.UnsupportedOperatingSystem:
+                    ImGui.Text("Only supported on Windows");
+                    break;
+                default:
+                    ImGui.Text("Unknown error (see /xllog)");
+                    break;
             }
         }
 

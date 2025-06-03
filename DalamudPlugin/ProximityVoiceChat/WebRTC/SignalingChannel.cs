@@ -1,13 +1,13 @@
-﻿using AsyncAwaitBestPractices;
-using ProximityVoiceChat.Log;
-using SocketIO.Serializer.SystemTextJson;
-using SocketIOClient;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
+using AsyncAwaitBestPractices;
+using ProximityVoiceChat.Log;
+using SocketIO.Serializer.SystemTextJson;
+using SocketIOClient;
 
 namespace ProximityVoiceChat.WebRTC;
 
@@ -22,7 +22,7 @@ public class SignalingChannel : IDisposable
     public string SignalingServerUrl { get; }
     public string Token { get; }
     public string? RoomName { get; private set; }
-    public string? LatestServerDisconnectMessage { get; private set; }
+    public SignalingChannelError? LatestError { get; private set; }
 
     public event Action? OnConnected;
     public event Action? OnReady;
@@ -53,6 +53,17 @@ public class SignalingChannel : IDisposable
 
     public Task ConnectAsync(string roomName, string roomPassword, string[]? playersInInstance)
     {
+        // OS check
+        if (!OperatingSystem.IsWindows())
+        {
+            LatestError = SignalingChannelError.UnsupportedOperatingSystem;
+            this.logger.Error("ProximityVoiceChat is currently only supported on Windows.");
+            this.OnDisconnected?.Invoke();
+            var cts = new CancellationTokenSource();
+            cts.Cancel();
+            return Task.FromCanceled(cts.Token);
+        }
+
         if (this.socket == null)
         {
             this.socket = new SocketIOClient.SocketIO(this.SignalingServerUrl, new SocketIOOptions
@@ -141,9 +152,9 @@ public class SignalingChannel : IDisposable
         }
     }
 
-    public void ClearLatestDisconnectMessage()
+    public void ClearLatestError()
     {
-        this.LatestServerDisconnectMessage = null;
+        this.LatestError = null;
     }
 
     public void Dispose()
@@ -265,7 +276,19 @@ public class SignalingChannel : IDisposable
 
     private void OnServerDisconnect(SocketIOResponse response)
     {
-        this.LatestServerDisconnectMessage = response.GetValue<SignalDisconnectMessage>().message;
+        var errorMsg = response.GetValue<SignalDisconnectMessage>().message;
+        if (errorMsg.Contains("incorrect password"))
+        {
+            this.LatestError = SignalingChannelError.IncorrectPrivateRoomPassword;
+        }
+        else if (errorMsg.Contains("room does not exist"))
+        {
+            this.LatestError = SignalingChannelError.NonexistentPrivateRoom;
+        }
+        else
+        {
+            this.LatestError = SignalingChannelError.Unknown;
+        }
         this.logger.Error("Signaling server disconnect: {0}", response);
 
         // DEPRECATED COMMENT:

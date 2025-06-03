@@ -1,4 +1,10 @@
-﻿using AsyncAwaitBestPractices;
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text.Json;
+using System.Threading.Tasks;
+using AsyncAwaitBestPractices;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using Microsoft.MixedReality.WebRTC;
@@ -7,12 +13,6 @@ using ProximityVoiceChat.Extensions;
 using ProximityVoiceChat.Input;
 using ProximityVoiceChat.Log;
 using ProximityVoiceChat.WebRTC;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text.Json;
-using System.Threading.Tasks;
 
 namespace ProximityVoiceChat;
 

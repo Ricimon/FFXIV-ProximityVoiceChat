@@ -1,12 +1,12 @@
-﻿using AsyncAwaitBestPractices;
+﻿using System;
+using System.Reactive.Linq;
+using AsyncAwaitBestPractices;
 using Dalamud.Plugin.Services;
 using ProximityVoiceChat.Extensions;
 using ProximityVoiceChat.Input;
 using ProximityVoiceChat.Log;
 using ProximityVoiceChat.UI.View;
 using Reactive.Bindings;
-using System;
-using System.Reactive.Linq;
 
 namespace ProximityVoiceChat.UI.Presenter;
 
@@ -42,7 +42,7 @@ public class MainWindowPresenter(
             b =>
             {
                 this.configuration.PublicRoom = b; this.configuration.Save();
-                this.voiceRoomManager.SignalingChannel?.ClearLatestDisconnectMessage();
+                this.voiceRoomManager.SignalingChannel?.ClearLatestError();
             },
             this.configuration.PublicRoom);
         Bind(this.view.RoomName,
@@ -66,7 +66,7 @@ public class MainWindowPresenter(
 
         this.view.JoinVoiceRoom.Subscribe(_ =>
         {
-            this.voiceRoomManager.SignalingChannel?.ClearLatestDisconnectMessage();
+            this.voiceRoomManager.SignalingChannel?.ClearLatestError();
             if (this.view.PublicRoom.Value)
             {
                 this.voiceRoomManager.JoinPublicVoiceRoom();

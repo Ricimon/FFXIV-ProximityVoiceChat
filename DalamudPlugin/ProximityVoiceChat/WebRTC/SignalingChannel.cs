@@ -5,6 +5,7 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using AsyncAwaitBestPractices;
+using Dalamud.Utility;
 using ProximityVoiceChat.Log;
 using SocketIO.Serializer.SystemTextJson;
 using SocketIOClient;
@@ -54,7 +55,7 @@ public class SignalingChannel : IDisposable
     public Task ConnectAsync(string roomName, string roomPassword, string[]? playersInInstance)
     {
         // OS check
-        if (!OperatingSystem.IsWindows())
+        if (Util.IsWine())
         {
             LatestError = SignalingChannelError.UnsupportedOperatingSystem;
             this.logger.Error("ProximityVoiceChat is currently only supported on Windows.");

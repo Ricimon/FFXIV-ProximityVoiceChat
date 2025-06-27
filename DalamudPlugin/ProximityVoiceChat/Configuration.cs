@@ -34,6 +34,7 @@ namespace ProximityVoiceChat
         public AudioFalloffModel FalloffModel { get; set; } = new();
         public bool MuteDeadPlayers { get; set; } = true;
         public int MuteDeadPlayersDelayMs { get; set; } = 2000;
+        public bool UnmuteAllIfDead { get; set; } = true;
         public bool MuteOutOfMapPlayers { get; set; } = false;
         public bool EnableSpatialization { get; set; } = true;
 

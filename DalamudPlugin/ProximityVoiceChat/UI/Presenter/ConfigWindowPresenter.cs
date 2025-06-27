@@ -76,6 +76,8 @@ public class ConfigWindowPresenter(
             b => { this.configuration.MuteDeadPlayers = b; this.configuration.Save(); }, this.configuration.MuteDeadPlayers);
         Bind(this.view.MuteDeadPlayersDelayMs,
             f => { this.configuration.MuteDeadPlayersDelayMs = f; this.configuration.Save(); }, this.configuration.MuteDeadPlayersDelayMs);
+        Bind(this.view.UnmuteAllIfDead,
+            b => { this.configuration.UnmuteAllIfDead = b; this.configuration.Save(); }, this.configuration.UnmuteAllIfDead);
         Bind(this.view.MuteOutOfMapPlayers,
             b => { this.configuration.MuteOutOfMapPlayers = b; this.configuration.Save(); }, this.configuration.MuteOutOfMapPlayers);
 

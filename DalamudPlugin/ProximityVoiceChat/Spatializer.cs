@@ -151,7 +151,11 @@ public class Spatializer : IDisposable
         distance = toTarget.Length();
         var deathMute = this.configuration.MuteDeadPlayers;
 
-        if (otherTrackedPlayer != null)
+        if (this.configuration.UnmuteAllIfDead && (this.clientState.LocalPlayer?.IsDead ?? false))
+        {
+            deathMute = false;
+        }
+        else if (otherTrackedPlayer != null)
         {
             if (!otherPlayer.IsDead)
             {

@@ -33,6 +33,7 @@ public class ConfigWindow
     public IReactiveProperty<bool> EnableSpatialization { get; } = new ReactiveProperty<bool>();
     public IReactiveProperty<bool> MuteDeadPlayers { get; } = new ReactiveProperty<bool>();
     public IReactiveProperty<int> MuteDeadPlayersDelayMs { get; } = new ReactiveProperty<int>();
+    public IReactiveProperty<bool> UnmuteAllIfDead { get; } = new ReactiveProperty<bool>();
     public IReactiveProperty<bool> MuteOutOfMapPlayers { get; } = new ReactiveProperty<bool>();
 
     public IReactiveProperty<bool> PlayRoomJoinAndLeaveSounds { get; } = new ReactiveProperty<bool>();
@@ -289,6 +290,21 @@ public class ConfigWindow
             if (ImGui.InputInt("##Delay (ms)", ref muteDeadPlayersDelayMs, 0))
             {
                 this.MuteDeadPlayersDelayMs.Value = muteDeadPlayersDelayMs;
+            }
+
+            ImGui.TableNextRow(); ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding();
+            ImGui.Text("Unmute All If Dead");
+            if (ImGui.IsItemHovered())
+            {
+                ImGui.SetTooltip("Hear everyone if you are dead, helps reduce loneliness on wipes");
+            }
+            ImGui.TableNextColumn();
+            ImGui.SetNextItemWidth(ImGui.GetColumnWidth());
+            var unmuteAllIfDead = this.UnmuteAllIfDead.Value;
+            if (ImGui.Checkbox("##UnmuteAllIfDead", ref unmuteAllIfDead))
+            {
+                this.UnmuteAllIfDead.Value = unmuteAllIfDead;
             }
 
             ImGui.TableNextRow(); ImGui.TableNextColumn();

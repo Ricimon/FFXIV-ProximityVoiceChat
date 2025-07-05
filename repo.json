@@ -45,8 +45,8 @@
         "Description": "Augments existing raids with community-made custom mechanics just for fun. [IN DEVELOPMENT]",
         "Punchline": "Custom raid mechanics [IN DEVELOPMENT]",
         "InternalName": "RaidsRewritten",
-        "AssemblyVersion": "0.1.5.0",
-        "TestingAssemblyVersion": "0.1.5.0",
+        "AssemblyVersion": "0.1.6.0",
+        "TestingAssemblyVersion": "0.1.6.0",
         "RepoUrl": "https://github.com/Ricimon/FFXIV-RaidsRewritten",
         "IconUrl": "https://raw.githubusercontent.com/Ricimon/FFXIV-RaidsRewritten/main/images/icon.png",
         "ApplicableVersion": "any",
@@ -55,8 +55,8 @@
         "IsTestingExclusive": "False",
         "LastUpdate": 0,
         "DownloadCount": 0,
-        "DownloadLinkInstall": "https://github.com/Ricimon/FFXIV-RaidsRewritten/releases/download/v0.1.5-alpha/RaidsRewritten_v0.1.5.zip",
-        "DownloadLinkTesting": "https://github.com/Ricimon/FFXIV-RaidsRewritten/releases/download/v0.1.5-alpha/RaidsRewritten_v0.1.5.zip",
-        "DownloadLinkUpdate": "https://github.com/Ricimon/FFXIV-RaidsRewritten/releases/download/v0.1.5-alpha/RaidsRewritten_v0.1.5.zip"
+        "DownloadLinkInstall": "https://github.com/Ricimon/FFXIV-RaidsRewritten/releases/download/v0.1.6-alpha/RaidsRewritten_v0.1.6.zip",
+        "DownloadLinkTesting": "https://github.com/Ricimon/FFXIV-RaidsRewritten/releases/download/v0.1.6-alpha/RaidsRewritten_v0.1.6.zip",
+        "DownloadLinkUpdate": "https://github.com/Ricimon/FFXIV-RaidsRewritten/releases/download/v0.1.6-alpha/RaidsRewritten_v0.1.6.zip"
     }
 ]

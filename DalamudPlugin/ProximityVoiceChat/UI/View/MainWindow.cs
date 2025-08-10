@@ -5,13 +5,13 @@ using System.Reactive;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Text;
+using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
 using Dalamud.Interface.Windowing;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
-using ImGuiNET;
 using Microsoft.MixedReality.WebRTC;
 using ProximityVoiceChat.Extensions;
 using ProximityVoiceChat.Input;
@@ -518,16 +518,16 @@ public class MainWindow : Window, IPluginUIView, IDisposable
         ImGui.Indent(-indent);
     }
 
-    private nint GetMicrophoneImage(bool muted, bool self)
+    private ImTextureID GetMicrophoneImage(bool muted, bool self)
     {
         var imageName = muted ? (self ? "microphone-muted-self.png" : "microphone-muted.png") : "microphone.png";
-        return this.textureProvider.GetFromFile(this.pluginInterface.GetResourcePath(imageName)).GetWrapOrDefault()?.ImGuiHandle ?? default;
+        return this.textureProvider.GetFromFile(this.pluginInterface.GetResourcePath(imageName)).GetWrapOrDefault()?.Handle ?? default;
     }
 
-    private nint GetHeadphonesImage(bool deafened, bool self)
+    private ImTextureID GetHeadphonesImage(bool deafened, bool self)
     {
         var imageName = deafened ? (self ? "headphones-deafen-self.png" : "headphones-deafen.png") : "headphones.png";
-        return this.textureProvider.GetFromFile(this.pluginInterface.GetResourcePath(imageName)).GetWrapOrDefault()?.ImGuiHandle ?? default;
+        return this.textureProvider.GetFromFile(this.pluginInterface.GetResourcePath(imageName)).GetWrapOrDefault()?.Handle ?? default;
     }
 
     private void DrawConfigTab()

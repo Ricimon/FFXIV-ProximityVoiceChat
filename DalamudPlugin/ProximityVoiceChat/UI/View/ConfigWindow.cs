@@ -1,15 +1,15 @@
-﻿using Dalamud.Interface.Utility.Raii;
-using ImGuiNET;
-using ProximityVoiceChat.Input;
-using ProximityVoiceChat.Log;
-using ProximityVoiceChat.UI.Util;
-using Reactive.Bindings;
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
+using Dalamud.Bindings.ImGui;
+using Dalamud.Interface.Utility.Raii;
+using ProximityVoiceChat.Input;
+using ProximityVoiceChat.Log;
+using ProximityVoiceChat.UI.Util;
+using Reactive.Bindings;
 using WindowsInput.Events;
 
 namespace ProximityVoiceChat.UI.View;

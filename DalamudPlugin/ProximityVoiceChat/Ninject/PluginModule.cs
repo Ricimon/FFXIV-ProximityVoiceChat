@@ -18,6 +18,7 @@ public class PluginModule : NinjectModule
     public override void Load()
     {
         // Dalamud services
+        // TODO: Deprecate these
         Bind<IDalamudPluginInterface>().ToConstant(PluginInitializer.PluginInterface).InTransientScope();
         Bind<ICommandManager>().ToConstant(PluginInitializer.CommandManager).InTransientScope();
         Bind<IChatGui>().ToConstant(PluginInitializer.ChatGui).InTransientScope();
@@ -32,6 +33,9 @@ public class PluginModule : NinjectModule
         Bind<IFramework>().ToConstant(PluginInitializer.Framework).InTransientScope();
         Bind<ITextureProvider>().ToConstant(PluginInitializer.TextureProvider).InTransientScope();
         Bind<IPluginLog>().ToConstant(PluginInitializer.Log).InTransientScope();
+
+        // Dalamud services
+        Bind<DalamudServices>().ToSelf();
 
         // Plugin classes
         Bind<Plugin>().ToSelf().InSingletonScope();

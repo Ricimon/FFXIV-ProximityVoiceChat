@@ -1,13 +1,12 @@
 ﻿using Dalamud.Interface.Windowing;
 using Dalamud.Plugin;
 using ProximityVoiceChat.UI.Presenter;
-using System;
 
 namespace ProximityVoiceChat.UI;
 
 // It is good to have this be disposable in general, in case you ever need it
 // to do any cleanup
-public class PluginUIContainer : IDalamudHook
+public sealed class PluginUIContainer : IDalamudHook
 {
     private readonly IPluginUIPresenter[] pluginUIPresenters;
     private readonly MainWindowPresenter mainWindowPresenter;
@@ -35,7 +34,6 @@ public class PluginUIContainer : IDalamudHook
     {
         this.pluginInterface.UiBuilder.Draw -= Draw;
         this.pluginInterface.UiBuilder.OpenMainUi -= ShowMainWindow;
-        GC.SuppressFinalize(this);
     }
 
     public void HookToDalamud()

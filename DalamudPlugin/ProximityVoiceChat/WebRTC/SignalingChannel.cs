@@ -5,14 +5,13 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using AsyncAwaitBestPractices;
-using Dalamud.Utility;
 using ProximityVoiceChat.Log;
 using SocketIO.Serializer.SystemTextJson;
 using SocketIOClient;
 
 namespace ProximityVoiceChat.WebRTC;
 
-public class SignalingChannel : IDisposable
+public sealed class SignalingChannel : IDisposable
 {
     // Since Dalamud 12, for some reason accessing socket parameters such as socket.Connected from the UI thread
     // would crash the game. So, intermediate field booleans are now used to indicate state to the UI.
@@ -54,17 +53,6 @@ public class SignalingChannel : IDisposable
 
     public Task ConnectAsync(string roomName, string roomPassword, string[]? playersInInstance)
     {
-        // OS check
-        if (Util.IsWine())
-        {
-            LatestError = SignalingChannelError.UnsupportedOperatingSystem;
-            this.logger.Error("ProximityVoiceChat is currently only supported on Windows.");
-            this.OnDisconnected?.Invoke();
-            var cts = new CancellationTokenSource();
-            cts.Cancel();
-            return Task.FromCanceled(cts.Token);
-        }
-
         if (this.socket == null)
         {
             this.socket = new SocketIOClient.SocketIO(this.SignalingServerUrl, new SocketIOOptions
@@ -165,7 +153,6 @@ public class SignalingChannel : IDisposable
         this.OnMessage = null;
         this.OnDisconnected = null;
         this.DisposeSocket();
-        GC.SuppressFinalize(this);
     }
 
     private void AddListeners()

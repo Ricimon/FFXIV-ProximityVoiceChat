@@ -9,7 +9,7 @@ using System.Text;
 
 namespace ProximityVoiceChat;
 
-public class MapManager : IDisposable
+public sealed class MapManager : IDisposable
 {
     public ushort CurrentTerritoryId => this.clientState.TerritoryType;
     public uint CurrentMapId => this.clientState.MapId;
@@ -33,7 +33,6 @@ public class MapManager : IDisposable
     public void Dispose()
     {
         this.clientState.TerritoryChanged -= OnTerritoryChanged;
-        GC.SuppressFinalize(this);
     }
 
     public unsafe bool InSharedWorldMap()

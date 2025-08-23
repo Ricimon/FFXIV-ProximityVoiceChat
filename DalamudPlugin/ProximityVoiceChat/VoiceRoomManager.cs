@@ -16,7 +16,7 @@ using ProximityVoiceChat.WebRTC;
 
 namespace ProximityVoiceChat;
 
-public class VoiceRoomManager : IDisposable
+public sealed class VoiceRoomManager : IDisposable
 {
     /// <summary>
     /// When in a public room, this plugin will automatically switch voice rooms when the player changes maps.
@@ -133,7 +133,6 @@ public class VoiceRoomManager : IDisposable
         this.SignalingChannel?.Dispose();
         this.WebRTCManager?.Dispose();
         this.clientState.Logout -= OnLogout;
-        GC.SuppressFinalize(this);
     }
 
     public void JoinPublicVoiceRoom()

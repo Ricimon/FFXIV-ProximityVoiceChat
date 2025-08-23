@@ -5,7 +5,7 @@ using WebRtcVadSharp;
 
 namespace ProximityVoiceChat.Input;
 
-public class PlaybackChannel : IDisposable
+public sealed class PlaybackChannel : IDisposable
 {
     public required MonoToStereoSampleProvider MonoToStereoSampleProvider { get; set; }
     public required BufferedWaveProvider BufferedWaveProvider { get; set; }
@@ -21,6 +21,5 @@ public class PlaybackChannel : IDisposable
     public void Dispose()
     {
         this.VoiceActivityDetector.Dispose();
-        GC.SuppressFinalize(this);
     }
 }

@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 
 namespace ProximityVoiceChat.WebRTC;
 
-public class WebRTCManager : IDisposable
+public sealed class WebRTCManager : IDisposable
 {
     public IReadOnlyDictionary<string, Peer> Peers => peers;
 
@@ -63,7 +63,6 @@ public class WebRTCManager : IDisposable
             this.signalingChannel.OnDisconnected -= OnDisconnected;
         }
         OnDisconnected();
-        GC.SuppressFinalize(this);
     }
 
     private void OnConnected()

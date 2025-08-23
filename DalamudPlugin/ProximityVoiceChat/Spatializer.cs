@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 
 namespace ProximityVoiceChat;
 
-public class Spatializer : IDisposable
+public sealed class Spatializer : IDisposable
 {
     private readonly IClientState clientState;
     private readonly IObjectTable objectTable;
@@ -64,14 +64,12 @@ public class Spatializer : IDisposable
     {
         isDisposed = true;
         this.updateTimer.Dispose();
-        GC.SuppressFinalize(this);
     }
 
     private void UpdatePlayerVolumes()
     {
         try
         {
-
             // Use polling to set individual channel volumes.
             // The search is done by iterating through all GameObjects and finding any connected players out of them,
             // so we reset all players volumes before calculating any volumes in case the players cannot be found.

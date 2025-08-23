@@ -7,7 +7,7 @@ using WindowsInput.Events.Sources;
 
 namespace ProximityVoiceChat.Input;
 
-public class InputEventSource(Configuration configuration) : IDisposable
+public sealed class InputEventSource(Configuration configuration) : IDisposable
 {
     [DllImport("user32.dll")]
     private static extern IntPtr GetForegroundWindow();
@@ -52,7 +52,6 @@ public class InputEventSource(Configuration configuration) : IDisposable
             mouse.ButtonUp -= OnMouseButtonUp;
         }
         mouse?.Dispose();
-        GC.SuppressFinalize(this);
     }
 
     public void SubscribeToKeyDown(Action<KeyDown> action)

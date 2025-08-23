@@ -3,7 +3,6 @@ using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using AsyncAwaitBestPractices;
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
 using ProximityVoiceChat.Log;
@@ -12,7 +11,7 @@ using WebRtcVadSharp;
 
 namespace ProximityVoiceChat.Input;
 
-public class AudioDeviceController : IAudioDeviceController, IDisposable
+public sealed class AudioDeviceController : IAudioDeviceController, IDisposable
 {
     public bool IsAudioRecordingSourceActive => PlayingBackMicAudio || (!MuteMic && !Deafen && AudioRecordingIsRequested);
     public bool IsAudioPlaybackSourceActive => PlayingBackMicAudio || (!Deafen && AudioPlaybackIsRequested);
@@ -121,20 +120,15 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
             this.selfVoiceActivityDetector.HasSpeech(this.lastAudioRecordingSourceData.Buffer) :
             this.lastAudioRecordingSourceData.Buffer.Any(b => b != default));
 
-    private WaveInEvent? audioRecordingSource;
-    private WaveOutEvent? audioPlaybackSource;
-    private Denoiser? denoiser;
-    private bool recording;
-    private bool playingBack;
-    private WaveInEventArgs? lastAudioRecordingSourceData;
-    private ISampleProvider? currentSfx;
-    private TaskCompletionSource? currentSfxTcs;
-
     private const int SampleRate = 48000; // RNNoise frequency
     private const int FrameLength = 20; // 20 ms, for max compatibility
     private const int WaveOutDesiredLatency = 100;
     private const int WaveOutNumberOfBuffers = 5;
     private const int MinimumBufferClearIntervalMs = 5000;
+
+    private readonly DalamudServices dalamud;
+    private readonly Configuration configuration;
+    private readonly ILogger logger;
 
     private readonly WaveFormat waveFormat = new(rate: 48000, bits: 16, channels: 1);
     private readonly Dictionary<string, PlaybackChannel> playbackChannels = [];
@@ -148,13 +142,20 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
         FrameLength = WebRtcVadSharp.FrameLength.Is20ms,
         SampleRate = WebRtcVadSharp.SampleRate.Is48kHz,
     };
-    private readonly Configuration configuration;
-    private readonly ILogger logger;
 
 #if DEBUG
     // Use this to simulate lag (can only use when there's 1 other user in the voice room)
     private readonly List<WaveInEventArgs> inputQueue = new();
 #endif
+
+    private WaveInEvent? audioRecordingSource;
+    private WaveOutEvent? audioPlaybackSource;
+    private Denoiser? denoiser;
+    private bool recording;
+    private bool playingBack;
+    private WaveInEventArgs? lastAudioRecordingSourceData;
+    private ISampleProvider? currentSfx;
+    private TaskCompletionSource? currentSfxTcs;
 
     public static byte[] ConvertAudioSampleToByteArray(WaveInEventArgs args)
     {
@@ -180,10 +181,11 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
         return true;
     }
 
-    public AudioDeviceController(Configuration configuration, ILogger logger)
+    public AudioDeviceController(DalamudServices dalamud, Configuration configuration, ILogger logger)
     {
-        this.configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
-        this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        this.dalamud = dalamud;
+        this.configuration = configuration;
+        this.logger = logger;
 
         this.muteMic = configuration.MuteMic;
         this.deafen = configuration.Deafen;
@@ -214,7 +216,6 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
         {
             channel.Dispose();
         }
-        GC.SuppressFinalize(this);
     }
 
     public IEnumerable<string> GetAudioRecordingDevices()
@@ -557,11 +558,10 @@ public class AudioDeviceController : IAudioDeviceController, IDisposable
             if (recordingSource != null)
             {
                 this.logger.Debug("Stopping audio recording source from device {0}", recordingSource.DeviceNumber);
-                // Since Dalamud 12, for some reason, NAudio is liable to crash if StopRecording() is called from a UI thread.
-                // In testing, this happened every 2nd call to this method from the UI thread.
-                // So, wrap it in Task.Run to put it on another thread.
-                Task.Run(recordingSource.StopRecording).SafeFireAndForget(ex => this.logger.Error(ex.ToString()));
+                // Since Dalamud 12, for some reason, NAudio is liable to crash if StopRecording() is called from anywhere.
+                // So, dispose of the entire audio recording source instead.
             }
+            DisposeAudioRecordingSource();
             this.lastAudioRecordingSourceData = null;
             this.denoiser?.Dispose(); this.denoiser = null;
             this.recording = false;

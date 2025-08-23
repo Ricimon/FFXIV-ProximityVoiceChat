@@ -1,11 +1,10 @@
 ﻿using Dalamud.Game.Command;
 using Dalamud.Plugin.Services;
 using ProximityVoiceChat.UI.Presenter;
-using System;
 
 namespace ProximityVoiceChat;
 
-public class CommandDispatcher(
+public sealed class CommandDispatcher(
     ICommandManager commandManager,
     MainWindowPresenter mainWindowPresenter) : IDalamudHook
 {
@@ -31,7 +30,6 @@ public class CommandDispatcher(
     {
         this.commandManager.RemoveHandler(commandName);
         this.commandManager.RemoveHandler(commandNameAlt);
-        GC.SuppressFinalize(this);
     }
 
     private void OnCommand(string command, string args)

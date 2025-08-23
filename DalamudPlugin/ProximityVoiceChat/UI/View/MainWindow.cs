@@ -22,7 +22,7 @@ using Reactive.Bindings;
 
 namespace ProximityVoiceChat.UI.View;
 
-public class MainWindow : Window, IPluginUIView, IDisposable
+public sealed class MainWindow : Window, IPluginUIView, IDisposable
 {
     // this extra bool exists for ImGui, since you can't ref a property
     private bool visible = false;
@@ -61,6 +61,8 @@ public class MainWindow : Window, IPluginUIView, IDisposable
     private readonly ConfigWindow configWindow;
     private readonly ConfigWindowPresenter configWindowPresenter;
 
+    private readonly string windowName;
+
     private string? createPrivateRoomButtonText;
     private bool configTabSelected;
 
@@ -87,7 +89,23 @@ public class MainWindow : Window, IPluginUIView, IDisposable
         this.configuration = configuration;
         this.configWindow = configWindow;
         this.configWindowPresenter = configWindowPresenter;
+
+        var version = GetType().Assembly.GetName().Version?.ToString() ?? string.Empty;
+        this.windowName = PluginInitializer.Name;
+        if (version.Length > 0)
+        {
+            var versionArray = version.Split(".");
+            version = string.Join(".", versionArray.Take(3));
+            this.windowName += $" v{version}";
+        }
+#if DEBUG
+        this.windowName += " (DEBUG)";
+#endif
         windowSystem.AddWindow(this);
+
+#if DEBUG
+        visible = true;
+#endif
     }
 
     public override void Draw()
@@ -101,7 +119,7 @@ public class MainWindow : Window, IPluginUIView, IDisposable
         var width = 350;
         ImGui.SetNextWindowSize(new Vector2(width, 400), ImGuiCond.FirstUseEver);
         ImGui.SetNextWindowSizeConstraints(new Vector2(width, 250), new Vector2(float.MaxValue, float.MaxValue));
-        if (ImGui.Begin("ProximityVoiceChat", ref this.visible))
+        if (ImGui.Begin(this.windowName, ref this.visible))
         {
             DrawContents();
         }
@@ -111,7 +129,6 @@ public class MainWindow : Window, IPluginUIView, IDisposable
     public void Dispose()
     {
         windowSystem.RemoveWindow(this);
-        GC.SuppressFinalize(this);
     }
 
     private void DrawContents()

@@ -2,6 +2,7 @@
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
@@ -142,6 +143,7 @@ public sealed class AudioDeviceController : IAudioDeviceController, IDisposable
         FrameLength = WebRtcVadSharp.FrameLength.Is20ms,
         SampleRate = WebRtcVadSharp.SampleRate.Is48kHz,
     };
+    private readonly Lock recordingLock = new();
 
 #if DEBUG
     // Use this to simulate lag (can only use when there's 1 other user in the voice room)
@@ -151,7 +153,7 @@ public sealed class AudioDeviceController : IAudioDeviceController, IDisposable
     private WaveInEvent? audioRecordingSource;
     private WaveOutEvent? audioPlaybackSource;
     private Denoiser? denoiser;
-    private bool recording;
+    private volatile bool recording;
     private bool playingBack;
     private WaveInEventArgs? lastAudioRecordingSourceData;
     private ISampleProvider? currentSfx;
@@ -506,10 +508,12 @@ public sealed class AudioDeviceController : IAudioDeviceController, IDisposable
 
     private void OnAudioSourceDataAvailable(object? sender, WaveInEventArgs e)
     {
+        if (!this.recording) { return; }
         //this.logger.Trace("Audio data received from recording device: {0} bytes recorded, {1}", e.BytesRecorded, e.Buffer);
         if (this.configuration.SuppressNoise && this.denoiser != null)
         {
             Convert16BitToFloat(e.Buffer, this.denoiserFloatSamples);
+            // With incomplete audio data, this method can crash Dalamud
             this.denoiser.Denoise(this.denoiserFloatSamples);
             ConvertFloatTo16Bit(this.denoiserFloatSamples, e.Buffer);
         }
@@ -544,7 +548,10 @@ public sealed class AudioDeviceController : IAudioDeviceController, IDisposable
             if (!this.recording)
             {
                 this.logger.Debug("Starting audio recording source from device {0}", GetAudioRecordingSource(true)!.DeviceNumber);
-                GetAudioRecordingSource(true)!.StartRecording();
+                lock (this.recordingLock)
+                {
+                    GetAudioRecordingSource(true)!.StartRecording();
+                }
                 // We need a new denoiser here as the previous denoiser may have remaining incomplete audio data
                 // that can cause audio popping the next time it is used.
                 this.denoiser?.Dispose(); this.denoiser = null;
@@ -558,10 +565,12 @@ public sealed class AudioDeviceController : IAudioDeviceController, IDisposable
             if (recordingSource != null)
             {
                 this.logger.Debug("Stopping audio recording source from device {0}", recordingSource.DeviceNumber);
-                // Since Dalamud 12, for some reason, NAudio is liable to crash if StopRecording() is called from anywhere.
-                // So, dispose of the entire audio recording source instead.
+                // This lock seems to fix rare crashes caused by native NAudio operations when stopping recording.
+                lock (this.recordingLock)
+                {
+                    recordingSource.StopRecording();
+                }
             }
-            DisposeAudioRecordingSource();
             this.lastAudioRecordingSourceData = null;
             this.denoiser?.Dispose(); this.denoiser = null;
             this.recording = false;

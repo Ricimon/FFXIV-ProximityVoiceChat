@@ -32,6 +32,7 @@ This adds plugins from this repo as installable plugins in the available plugins
 
 ## Planned Features
 - Host-enforced audio falloff settings
+- IPC support
 
 ## Contributing
 Please use the support discord for idea and code contribution discussion.

@@ -69,10 +69,7 @@ public sealed class VoiceRoomManager : IDisposable
 
     private string? localPlayerFullName;
 
-    private readonly IDalamudPluginInterface pluginInterface;
-    private readonly IClientState clientState;
-    private readonly IFramework framework;
-    private readonly IObjectTable objectTable;
+    private readonly DalamudServices dalamud;
     private readonly Configuration configuration;
     private readonly MapManager mapManager;
     private readonly WebRTCDataChannelHandler.IFactory dataChannelHandlerFactory;
@@ -84,27 +81,22 @@ public sealed class VoiceRoomManager : IDisposable
     private readonly CachedSound roomSelfLeaveSound;
     private readonly CachedSound roomOtherLeaveSound;
 
-    public VoiceRoomManager(IDalamudPluginInterface pluginInterface,
-        IClientState clientState,
-        IFramework framework,
-        IObjectTable objectTable,
+    public VoiceRoomManager(
+        DalamudServices dalamud,
         Configuration configuration,
         MapManager mapManager,
         WebRTCDataChannelHandler.IFactory dataChannelHandlerFactory,
         IAudioDeviceController audioDeviceController,
         ILogger logger)
     {
-        this.pluginInterface = pluginInterface;
-        this.clientState = clientState;
-        this.framework = framework;
-        this.objectTable = objectTable;
+        this.dalamud = dalamud;
         this.configuration = configuration;
         this.mapManager = mapManager;
         this.dataChannelHandlerFactory = dataChannelHandlerFactory;
         this.audioDeviceController = audioDeviceController;
         this.logger = logger;
 
-        var configPath = Path.Combine(pluginInterface.AssemblyLocation.DirectoryName ?? string.Empty, "config.json");
+        var configPath = Path.Combine(this.dalamud.PluginInterface.AssemblyLocation.DirectoryName ?? string.Empty, "config.json");
         this.loadConfig = null!;
         if (File.Exists(configPath))
         {
@@ -121,18 +113,18 @@ public sealed class VoiceRoomManager : IDisposable
             this.loadConfig = new();
         }
 
-        this.roomJoinSound = new(this.pluginInterface.GetResourcePath("join.wav"));
-        this.roomOtherLeaveSound = new(this.pluginInterface.GetResourcePath("other_leave.wav"));
-        this.roomSelfLeaveSound = new(this.pluginInterface.GetResourcePath("self_leave.wav"));
+        this.roomJoinSound = new(this.dalamud.PluginInterface.GetResourcePath("join.wav"));
+        this.roomOtherLeaveSound = new(this.dalamud.PluginInterface.GetResourcePath("other_leave.wav"));
+        this.roomSelfLeaveSound = new(this.dalamud.PluginInterface.GetResourcePath("self_leave.wav"));
 
-        this.clientState.Logout += OnLogout;
+        this.dalamud.ClientState.Logout += OnLogout;
     }
 
     public void Dispose()
     {
         this.SignalingChannel?.Dispose();
         this.WebRTCManager?.Dispose();
-        this.clientState.Logout -= OnLogout;
+        this.dalamud.ClientState.Logout -= OnLogout;
     }
 
     public void JoinPublicVoiceRoom()
@@ -250,10 +242,10 @@ public sealed class VoiceRoomManager : IDisposable
 
     private IEnumerable<string> GetOtherPlayerNamesInInstance()
     {
-        return this.objectTable.GetPlayers()
+        return this.dalamud.ObjectTable.GetPlayers()
             .Select(p => p.GetPlayerFullName())
             .Where(s => s != null)
-            .Where(s => s != this.clientState.GetLocalPlayerFullName())
+            .Where(s => s != this.dalamud.PlayerState.GetLocalPlayerFullName())
             .Cast<string>();
     }
 
@@ -267,7 +259,7 @@ public sealed class VoiceRoomManager : IDisposable
 
         this.logger.Debug("Attempting to join voice room.");
 
-        var playerName = this.clientState.GetLocalPlayerFullName();
+        var playerName = this.dalamud.PlayerState.GetLocalPlayerFullName();
         if (playerName == null)
         {
 #if DEBUG
@@ -340,7 +332,7 @@ public sealed class VoiceRoomManager : IDisposable
                 // Also in some housing districts, the mapId is different after the OnTerritoryChanged event
                 await Task.Delay(1000);
                 // Accessing the object table must happen on the main thread
-                this.framework.Run(() =>
+                this.dalamud.Framework.Run(() =>
                 {
                     var roomName = this.mapManager.GetCurrentMapPublicRoomName();
                     string[]? otherPlayers = this.mapManager.InSharedWorldMap() ? null : GetOtherPlayerNamesInInstance().ToArray();

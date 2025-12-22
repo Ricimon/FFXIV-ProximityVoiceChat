@@ -50,9 +50,7 @@ public sealed class MainWindow : Window, IPluginUIView, IDisposable
     private readonly Subject<(string playerName, float volume)> setPeerVolume = new();
 
     private readonly WindowSystem windowSystem;
-    private readonly IDalamudPluginInterface pluginInterface;
-    private readonly ITextureProvider textureProvider;
-    private readonly IClientState clientState;
+    private readonly DalamudServices dalamud;
     private readonly PushToTalkController pushToTalkController;
     private readonly IAudioDeviceController audioDeviceController;
     private readonly VoiceRoomManager voiceRoomManager;
@@ -68,9 +66,7 @@ public sealed class MainWindow : Window, IPluginUIView, IDisposable
 
     public MainWindow(
         WindowSystem windowSystem,
-        IDalamudPluginInterface pluginInterface,
-        ITextureProvider textureProvider,
-        IClientState clientState,
+        DalamudServices dalamud,
         PushToTalkController pushToTalkController,
         VoiceRoomManager voiceRoomManager,
         MapManager mapChangeHandler,
@@ -79,9 +75,7 @@ public sealed class MainWindow : Window, IPluginUIView, IDisposable
         ConfigWindowPresenter configWindowPresenter) : base(PluginInitializer.Name)
     {
         this.windowSystem = windowSystem;
-        this.pluginInterface = pluginInterface;
-        this.textureProvider = textureProvider;
-        this.clientState = clientState;
+        this.dalamud = dalamud;
         this.pushToTalkController = pushToTalkController;
         this.audioDeviceController = pushToTalkController;
         this.voiceRoomManager = voiceRoomManager;
@@ -237,7 +231,7 @@ public sealed class MainWindow : Window, IPluginUIView, IDisposable
         ImGui.BeginDisabled(this.voiceRoomManager.InRoom);
         if (this.createPrivateRoomButtonText == null || !this.voiceRoomManager.InRoom)
         {
-            var playerName = this.clientState.GetLocalPlayerFullName();
+            var playerName = this.dalamud.PlayerState.GetLocalPlayerFullName();
             this.createPrivateRoomButtonText = roomName.Length == 0 || roomName == playerName ?
                 "Create Private Voice Room" : "Join Private Voice Room";
         }
@@ -538,13 +532,13 @@ public sealed class MainWindow : Window, IPluginUIView, IDisposable
     private ImTextureID GetMicrophoneImage(bool muted, bool self)
     {
         var imageName = muted ? (self ? "microphone-muted-self.png" : "microphone-muted.png") : "microphone.png";
-        return this.textureProvider.GetFromFile(this.pluginInterface.GetResourcePath(imageName)).GetWrapOrDefault()?.Handle ?? default;
+        return this.dalamud.TextureProvider.GetFromFile(this.dalamud.PluginInterface.GetResourcePath(imageName)).GetWrapOrDefault()?.Handle ?? default;
     }
 
     private ImTextureID GetHeadphonesImage(bool deafened, bool self)
     {
         var imageName = deafened ? (self ? "headphones-deafen-self.png" : "headphones-deafen.png") : "headphones.png";
-        return this.textureProvider.GetFromFile(this.pluginInterface.GetResourcePath(imageName)).GetWrapOrDefault()?.Handle ?? default;
+        return this.dalamud.TextureProvider.GetFromFile(this.dalamud.PluginInterface.GetResourcePath(imageName)).GetWrapOrDefault()?.Handle ?? default;
     }
 
     private void DrawConfigTab()

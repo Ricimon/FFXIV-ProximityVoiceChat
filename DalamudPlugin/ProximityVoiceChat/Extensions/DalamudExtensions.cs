@@ -22,14 +22,18 @@ public static class DalamudExtensions
         return playerName;
     }
 
-    public static string? GetLocalPlayerFullName(this IClientState clientState)
+    public static string? GetLocalPlayerFullName(this IPlayerState playerState)
     {
-        var localPlayer = clientState.LocalPlayer;
-        if (localPlayer == null)
+        if (!playerState.IsLoaded) { return null; }
+
+        string playerName = playerState.CharacterName;
+        var homeWorld = playerState.HomeWorld;
+        if (homeWorld.IsValid)
         {
-            return null;
+            playerName += $"@{homeWorld.Value.Name.ExtractText()}";
         }
-        return GetPlayerFullName(localPlayer);
+
+        return playerName;
     }
 
     public static IEnumerable<IPlayerCharacter> GetPlayers(this IObjectTable objectTable)

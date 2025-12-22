@@ -14,7 +14,7 @@ public class MainWindowPresenter(
     MainWindow view,
     ConfigWindowPresenter configWindowPresenter,
     Configuration configuration,
-    IClientState clientState,
+    DalamudServices dalamud,
     IAudioDeviceController audioDeviceController,
     VoiceRoomManager voiceRoomManager,
     ILogger logger) : IPluginUIPresenter
@@ -24,7 +24,7 @@ public class MainWindowPresenter(
     private readonly MainWindow view = view;
     private readonly ConfigWindowPresenter configWindowPresenter = configWindowPresenter;
     private readonly Configuration configuration = configuration;
-    private readonly IClientState clientState = clientState;
+    private readonly DalamudServices dalamud = dalamud;
     private readonly IAudioDeviceController audioDeviceController = audioDeviceController;
     private readonly VoiceRoomManager voiceRoomManager = voiceRoomManager;
     private readonly ILogger logger = logger;
@@ -75,7 +75,7 @@ public class MainWindowPresenter(
             {
                 if (string.IsNullOrEmpty(this.view.RoomName.Value))
                 {
-                    var playerName = this.clientState.GetLocalPlayerFullName();
+                    var playerName = this.dalamud.PlayerState.GetLocalPlayerFullName();
                     if (playerName == null)
                     {
                         this.logger.Error("Player name is null, cannot autofill private room name.");

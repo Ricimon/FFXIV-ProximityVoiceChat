@@ -22,16 +22,7 @@ public class PluginModule : NinjectModule
         Bind<IDalamudPluginInterface>().ToConstant(PluginInitializer.PluginInterface).InTransientScope();
         Bind<ICommandManager>().ToConstant(PluginInitializer.CommandManager).InTransientScope();
         Bind<IChatGui>().ToConstant(PluginInitializer.ChatGui).InTransientScope();
-        Bind<IClientState>().ToConstant(PluginInitializer.ClientState).InTransientScope();
-        Bind<ICondition>().ToConstant(PluginInitializer.Condition).InTransientScope();
-        Bind<IDutyState>().ToConstant(PluginInitializer.DutyState).InTransientScope();
-        Bind<IDataManager>().ToConstant(PluginInitializer.DataManager).InTransientScope();
-        Bind<IObjectTable>().ToConstant(PluginInitializer.ObjectTable).InTransientScope();
-        Bind<IGameGui>().ToConstant(PluginInitializer.GameGui).InTransientScope();
-        Bind<IAddonEventManager>().ToConstant(PluginInitializer.AddonEventManager).InTransientScope();
-        Bind<IAddonLifecycle>().ToConstant(PluginInitializer.AddonLifecycle).InTransientScope();
         Bind<IFramework>().ToConstant(PluginInitializer.Framework).InTransientScope();
-        Bind<ITextureProvider>().ToConstant(PluginInitializer.TextureProvider).InTransientScope();
         Bind<IPluginLog>().ToConstant(PluginInitializer.Log).InTransientScope();
 
         // Dalamud services

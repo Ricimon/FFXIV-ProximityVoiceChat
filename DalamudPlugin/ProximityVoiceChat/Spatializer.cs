@@ -14,9 +14,7 @@ namespace ProximityVoiceChat;
 
 public sealed class Spatializer : IDisposable
 {
-    private readonly IClientState clientState;
-    private readonly IObjectTable objectTable;
-    private readonly IFramework framework;
+    private readonly DalamudServices dalamud;
     private readonly Configuration configuration;
     private readonly VoiceRoomManager voiceRoomManager;
     private readonly IAudioDeviceController audioDeviceController;
@@ -27,17 +25,14 @@ public sealed class Spatializer : IDisposable
 
     private bool isDisposed;
 
-    public Spatializer(IClientState clientState,
-        IObjectTable objectTable,
-        IFramework framework,
+    public Spatializer(
+        DalamudServices dalamud,
         Configuration configuration,
         VoiceRoomManager voiceRoomManager,
         IAudioDeviceController audioDeviceController,
         ILogger logger)
     {
-        this.clientState = clientState;
-        this.objectTable = objectTable;
-        this.framework = framework;
+        this.dalamud = dalamud;
         this.configuration = configuration;
         this.voiceRoomManager = voiceRoomManager;
         this.audioDeviceController = audioDeviceController;
@@ -55,7 +50,7 @@ public sealed class Spatializer : IDisposable
                 {
                     return;
                 }
-                this.framework.RunOnFrameworkThread(UpdatePlayerVolumes).SafeFireAndForget(ex => this.logger.Error(ex.ToString()));
+                this.dalamud.Framework.RunOnFrameworkThread(UpdatePlayerVolumes).SafeFireAndForget(ex => this.logger.Error(ex.ToString()));
             }
         }).SafeFireAndForget(ex => this.logger.Error(ex.ToString()));
     }
@@ -84,7 +79,7 @@ public sealed class Spatializer : IDisposable
             //DebugStuff();
 
             // Conditions where volume is impossible/unnecessary to calculate
-            if (this.clientState.LocalPlayer == null)
+            if (!this.dalamud.PlayerState.IsLoaded)
             {
                 return;
             }
@@ -99,7 +94,7 @@ public sealed class Spatializer : IDisposable
 
             var thisTick = Environment.TickCount;
 
-            foreach (var player in this.objectTable.GetPlayers())
+            foreach (var player in this.dalamud.ObjectTable.GetPlayers())
             {
                 var playerName = player.GetPlayerFullName();
                 if (playerName != null &&
@@ -138,9 +133,9 @@ public sealed class Spatializer : IDisposable
         out float volume)
     {
         Vector3 toTarget;
-        if (this.clientState.LocalPlayer != null)
+        if (this.dalamud.ObjectTable.LocalPlayer != null)
         {
-            toTarget = otherPlayer.Position - this.clientState.LocalPlayer.Position;
+            toTarget = otherPlayer.Position - this.dalamud.ObjectTable.LocalPlayer.Position;
         }
         else
         {
@@ -149,7 +144,7 @@ public sealed class Spatializer : IDisposable
         distance = toTarget.Length();
         var deathMute = this.configuration.MuteDeadPlayers;
 
-        if (this.configuration.UnmuteAllIfDead && (this.clientState.LocalPlayer?.IsDead ?? false))
+        if (this.configuration.UnmuteAllIfDead && (this.dalamud.ObjectTable.LocalPlayer?.IsDead ?? false))
         {
             deathMute = false;
         }

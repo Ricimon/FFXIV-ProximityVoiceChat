@@ -88,9 +88,10 @@ public sealed class MapManager : IDisposable
         if (InSharedWorldMap())
         {
             s.Append('_');
-            if (this.dalamud.PlayerState.IsLoaded)
+            var world = this.dalamud.PlayerState.CurrentWorld;
+            if (world.IsValid)
             {
-                s.Append(this.dalamud.PlayerState.CurrentWorld.Value.Name.ToString());
+                s.Append(world.Value.Name.ToString());
             }
             else
             {

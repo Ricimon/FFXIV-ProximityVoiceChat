@@ -409,10 +409,7 @@ public sealed class MainWindow : Window, IPluginUIView, IDisposable
                     {
                         ImGui.EndDisabled();
                         using var t = ImRaii.Tooltip();
-                        if (t)
-                        {
-                            ImGui.Text("You can't change your own volume");
-                        }
+                        ImGui.Text("You can't change your own volume");
                         ImGui.BeginDisabled(index == 0);
                     }
 
@@ -430,10 +427,7 @@ public sealed class MainWindow : Window, IPluginUIView, IDisposable
                         if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
                         {
                             using var t = ImRaii.Tooltip();
-                            if (t)
-                            {
-                                ImGui.TextUnformatted("Right click to reset to 100% volume");
-                            }
+                            ImGui.TextUnformatted("Right click to reset to 100% volume");
                         }
                     }
                 }

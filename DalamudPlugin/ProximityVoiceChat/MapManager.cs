@@ -9,7 +9,7 @@ namespace ProximityVoiceChat;
 
 public sealed class MapManager : IDisposable
 {
-    public ushort CurrentTerritoryId => this.dalamud.ClientState.TerritoryType;
+    public uint CurrentTerritoryId => this.dalamud.ClientState.TerritoryType;
     public uint CurrentMapId => this.dalamud.ClientState.MapId;
 
     public event Action? OnMapChanged;
@@ -138,7 +138,7 @@ public sealed class MapManager : IDisposable
         return s.ToString();
     }
 
-    private void OnTerritoryChanged(ushort obj)
+    private void OnTerritoryChanged(uint obj)
     {
         OnMapChanged?.Invoke();
     }

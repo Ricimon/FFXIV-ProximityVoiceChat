@@ -47,19 +47,19 @@
         "Description": "Augments existing raids with custom mechanics just for fun.",
         "Punchline": "Custom raid mechanics",
         "InternalName": "RaidsRewritten",
-        "AssemblyVersion": "1.1.2.0",
-        "TestingAssemblyVersion": "1.1.2.0",
+        "AssemblyVersion": "1.2.0.0",
+        "TestingAssemblyVersion": "1.2.0.0",
         "RepoUrl": "https://github.com/Ricimon/FFXIV-RaidsRewritten",
         "IconUrl": "https://raw.githubusercontent.com/Ricimon/FFXIV-RaidsRewritten/main/images/icon.png",
         "ApplicableVersion": "any",
-        "DalamudApiLevel": 14,
+        "DalamudApiLevel": 15,
         "IsHide": "False",
         "IsTestingExclusive": "False",
-        "LastUpdate": 1769390199,
+        "LastUpdate": 1777684204,
         "DownloadCount": 0,
-        "DownloadLinkInstall": "https://github.com/Ricimon/FFXIV-RaidsRewritten/releases/download/v1.1.2/RaidsRewritten_v1.1.2.zip",
-        "DownloadLinkTesting": "https://github.com/Ricimon/FFXIV-RaidsRewritten/releases/download/v1.1.2/RaidsRewritten_v1.1.2.zip",
-        "DownloadLinkUpdate": "https://github.com/Ricimon/FFXIV-RaidsRewritten/releases/download/v1.1.2/RaidsRewritten_v1.1.2.zip",
-        "Changelog": "Fix rare crash condition"
+        "DownloadLinkInstall": "https://github.com/Ricimon/FFXIV-RaidsRewritten/releases/download/v1.2.0/RaidsRewritten_v1.2.0.zip",
+        "DownloadLinkTesting": "https://github.com/Ricimon/FFXIV-RaidsRewritten/releases/download/v1.2.0/RaidsRewritten_v1.2.0.zip",
+        "DownloadLinkUpdate": "https://github.com/Ricimon/FFXIV-RaidsRewritten/releases/download/v1.2.0/RaidsRewritten_v1.2.0.zip",
+        "Changelog": "API 15 update"
     }
 ]

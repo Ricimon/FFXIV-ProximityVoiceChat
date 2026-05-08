@@ -11,6 +11,8 @@ This plugin adds proximity voice chat functionality to FFXIV as a Dalamud plugin
 - Mute dead players
 - Push-to-talk and noise suppression
 
+Example: https://x.com/UnityXIV/status/1887962272859029925
+
 #### Support Discord
 
 [![Discord Banner](https://discord.com/api/guilds/669688899248979968/widget.png?style=banner2)](https://discord.gg/rSucAJ6A7u)

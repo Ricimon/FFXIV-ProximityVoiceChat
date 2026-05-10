@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using NAudio;
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
 using ProximityVoiceChat.Log;
@@ -224,15 +225,22 @@ public sealed class AudioDeviceController : IAudioDeviceController, IDisposable
     {
         for (int n = -1; n < WaveIn.DeviceCount; n++)
         {
-            var caps = WaveIn.GetCapabilities(n);
             if (n == -1)
             {
                 yield return "Default";
             }
-            else
+
+            string deviceName;
+            try
             {
-                yield return caps.ProductName;
+                var caps = WaveIn.GetCapabilities(n);
+                deviceName = caps.ProductName;
             }
+            catch (MmException)
+            {
+                break;
+            }
+            yield return deviceName;
         }
     }
 
@@ -240,15 +248,22 @@ public sealed class AudioDeviceController : IAudioDeviceController, IDisposable
     {
         for (int n = -1; n < WaveOut.DeviceCount; n++)
         {
-            var caps = WaveOut.GetCapabilities(n);
             if (n == -1)
             {
                 yield return "Default";
             }
-            else
+
+            string deviceName;
+            try
             {
-                yield return caps.ProductName;
+                var caps = WaveOut.GetCapabilities(n);
+                deviceName = caps.ProductName;
             }
+            catch (MmException)
+            {
+                break;
+            }
+            yield return deviceName;
         }
     }
 

@@ -3,6 +3,7 @@ using ProximityVoiceChat.Input;
 using ProximityVoiceChat.Log;
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace ProximityVoiceChat.WebRTC
 {
@@ -79,11 +80,14 @@ namespace ProximityVoiceChat.WebRTC
 
         private void OnMessage(byte[] obj)
         {
-            //this.logger.Trace("Received data from peer {0}: {1}", this.peerId!, obj);
-            if (AudioDeviceController.TryParseAudioSampleBytes(obj, out var sample))
+            Task.Run(() =>
             {
-                this.audioDeviceController.AddPlaybackSample(this.peerId!, sample!);
-            }
+                //this.logger.Trace("Received data from peer {0}: {1}", this.peerId!, obj);
+                if (AudioDeviceController.TryParseAudioSampleBytes(obj, out var sample))
+                {
+                    this.audioDeviceController.AddPlaybackSample(this.peerId!, sample!);
+                }
+            });
         }
 
         public interface IFactory

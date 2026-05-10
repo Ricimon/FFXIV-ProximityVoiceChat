@@ -16,8 +16,6 @@ namespace ProximityVoiceChat.UI.View;
 
 public class ConfigWindow
 {
-    public IReactiveProperty<int> SelectedAudioInputDeviceIndex { get; } = new ReactiveProperty<int>(-1);
-    public IReactiveProperty<int> SelectedAudioOutputDeviceIndex { get; } = new ReactiveProperty<int>(-1);
     public IReactiveProperty<bool> PlayingBackMicAudio { get; } = new ReactiveProperty<bool>();
     public IReactiveProperty<bool> PushToTalk { get; } = new ReactiveProperty<bool>();
     public IReactiveProperty<bool> SuppressNoise { get; } = new ReactiveProperty<bool>();
@@ -99,22 +97,22 @@ public class ConfigWindow
                 ImGui.AlignTextToFramePadding();
                 ImGui.Text("Input Device"); ImGui.TableNextColumn();
                 ImGui.SetNextItemWidth(ImGui.GetColumnWidth());
-                this.inputDevices ??= this.audioDeviceController.GetAudioRecordingDevices().ToArray();
-                var inputDeviceIndex = this.SelectedAudioInputDeviceIndex.Value + 1;
+                this.inputDevices ??= [.. this.audioDeviceController.GetAudioRecordingDevices()];
+                var inputDeviceIndex = this.audioDeviceController.AudioRecordingDeviceIndex + 1;
                 if (ImGui.Combo("##InputDevice", ref inputDeviceIndex, this.inputDevices, this.inputDevices.Length))
                 {
-                    this.SelectedAudioInputDeviceIndex.Value = inputDeviceIndex - 1;
+                    this.audioDeviceController.AudioRecordingDeviceIndex = inputDeviceIndex - 1;
                 }
 
                 ImGui.TableNextRow(); ImGui.TableNextColumn();
                 ImGui.AlignTextToFramePadding();
                 ImGui.Text("Output Device"); ImGui.TableNextColumn();
                 ImGui.SetNextItemWidth(ImGui.GetColumnWidth());
-                this.outputDevices ??= this.audioDeviceController.GetAudioPlaybackDevices().ToArray();
-                var outputDeviceIndex = this.SelectedAudioOutputDeviceIndex.Value + 1;
+                this.outputDevices ??= [.. this.audioDeviceController.GetAudioPlaybackDevices()];
+                var outputDeviceIndex = this.audioDeviceController.AudioPlaybackDeviceIndex + 1;
                 if (ImGui.Combo("##OutputDevice", ref outputDeviceIndex, this.outputDevices, this.outputDevices.Length))
                 {
-                    this.SelectedAudioOutputDeviceIndex.Value = outputDeviceIndex - 1;
+                    this.audioDeviceController.AudioPlaybackDeviceIndex = outputDeviceIndex - 1;
                 }
             }
         }

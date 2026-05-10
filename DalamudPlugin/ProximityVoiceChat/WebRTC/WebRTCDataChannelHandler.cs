@@ -34,7 +34,7 @@ namespace ProximityVoiceChat.WebRTC
 
             if (this.peerConnection != null)
             {
-                this.peerConnection.DataChannels.ForEach(channel =>
+                foreach(var channel in this.peerConnection.DataChannels)
                 {
                     void onStateChanged()
                     {
@@ -43,7 +43,7 @@ namespace ProximityVoiceChat.WebRTC
                     channel.StateChanged += onStateChanged;
                     this.stateChangedSubscriptions.Add(this.peerId, onStateChanged);
                     channel.MessageReceived += this.OnMessage;
-                });
+                }
             }
 
             this.logger.Debug("Data channel registered for peer {0}", this.peerId);

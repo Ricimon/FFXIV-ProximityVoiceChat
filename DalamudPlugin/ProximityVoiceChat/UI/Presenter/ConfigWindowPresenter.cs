@@ -38,10 +38,6 @@ public class ConfigWindowPresenter(
 
     private void BindVariables()
     {
-        Bind(this.view.SelectedAudioInputDeviceIndex,
-            b => this.audioDeviceController.AudioRecordingDeviceIndex = b, this.audioDeviceController.AudioRecordingDeviceIndex);
-        Bind(this.view.SelectedAudioOutputDeviceIndex,
-            b => this.audioDeviceController.AudioPlaybackDeviceIndex = b, this.audioDeviceController.AudioPlaybackDeviceIndex);
         Bind(this.view.PlayingBackMicAudio,
             b => 
             {

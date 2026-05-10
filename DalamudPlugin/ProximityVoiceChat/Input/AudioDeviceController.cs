@@ -228,19 +228,24 @@ public sealed class AudioDeviceController : IAudioDeviceController, IDisposable
             if (n == -1)
             {
                 yield return "Default";
+                continue;
             }
 
-            string deviceName;
+            string? deviceName = null;
             try
             {
                 var caps = WaveIn.GetCapabilities(n);
                 deviceName = caps.ProductName;
             }
-            catch (MmException)
+            catch (MmException) { }
+            if (deviceName == null)
             {
-                break;
+                yield return "<Unknown device>";
             }
-            yield return deviceName;
+            else
+            {
+                yield return deviceName!;
+            }
         }
     }
 
@@ -251,19 +256,24 @@ public sealed class AudioDeviceController : IAudioDeviceController, IDisposable
             if (n == -1)
             {
                 yield return "Default";
+                continue;
             }
 
-            string deviceName;
+            string? deviceName = null;
             try
             {
                 var caps = WaveOut.GetCapabilities(n);
                 deviceName = caps.ProductName;
             }
-            catch (MmException)
+            catch (MmException) { }
+            if (deviceName == null)
             {
-                break;
+                yield return "<Unknown device>";
             }
-            yield return deviceName;
+            else
+            {
+                yield return deviceName!;
+            }
         }
     }
 
@@ -454,6 +464,12 @@ public sealed class AudioDeviceController : IAudioDeviceController, IDisposable
     {
         if (this.audioRecordingSource == null && createIfNull)
         {
+            if (this.AudioRecordingDeviceIndex >= WaveIn.DeviceCount)
+            {
+                // Avoid callbacks
+                this.audioRecordingDeviceIndex = -1;
+            }
+
             this.audioRecordingSource = new WaveInEvent
             {
                 DeviceNumber = this.AudioRecordingDeviceIndex,
@@ -485,6 +501,12 @@ public sealed class AudioDeviceController : IAudioDeviceController, IDisposable
     {
         if (this.audioPlaybackSource == null && createIfNull)
         {
+            if (this.AudioPlaybackDeviceIndex >= WaveOut.DeviceCount)
+            {
+                // Avoid callbacks
+                this.audioPlaybackDeviceIndex = -1;
+            }
+
             this.audioPlaybackSource = new WaveOutEvent
             {
                 DeviceNumber = this.AudioPlaybackDeviceIndex,

@@ -81,7 +81,9 @@ public class MainWindowPresenter(
                         this.logger.Error("Player name is null, cannot autofill private room name.");
                         return;
                     }
-                    this.view.RoomName.Value = playerName;
+                    var parts = playerName.Split(' ');
+                    var initials = $"{parts[0][0]}. {parts[1][0].";
+                    this.view.RoomName.Value = initials;
                 }
                 this.voiceRoomManager.JoinPrivateVoiceRoom(this.view.RoomName.Value, this.view.RoomPassword.Value);
             }

@@ -46,9 +46,17 @@ class WebrtcManager {
     signalingMessageHandler(message) {
         (this.verbose ? console.log(util.inspect(message, { showHidden: false, depth: null })) : "");
         const { from, payload } = message;
-        const { action, connections, bePolite, sdp, ice } = payload;
+        const { action, connections, bePolite, turnConfig, sdp, ice } = payload;
+
         switch (action) {
             case "open":
+                const { url, username, password } = turnConfig;
+                const iceServer = {
+                  urls: url,
+                  username: username,
+                  credential: password,
+                };
+                this.config["iceServers"] = [iceServer];
                 connections.forEach((newPeer) => this.addPeer(newPeer.peerId, newPeer.peerType, bePolite, newPeer.canTrickleIceCandidates));
                 break;
             case "close":

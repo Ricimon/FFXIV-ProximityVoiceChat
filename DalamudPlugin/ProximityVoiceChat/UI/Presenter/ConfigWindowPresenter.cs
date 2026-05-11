@@ -81,6 +81,8 @@ public class ConfigWindowPresenter(
             b => { this.configuration.PlayRoomJoinAndLeaveSounds = b; this.configuration.Save(); }, this.configuration.PlayRoomJoinAndLeaveSounds);
         Bind(this.view.KeybindsRequireGameFocus,
             b => { this.configuration.KeybindsRequireGameFocus = b; this.configuration.Save(); }, this.configuration.KeybindsRequireGameFocus);
+        Bind(this.view.ShowInitialsInPrivateRooms,
+            b => { this.configuration.ShowInitialsInPrivateRooms = b; this.configuration.Save(); }, this.configuration.ShowInitialsInPrivateRooms);
         Bind(this.view.PrintLogsToChat,
             b => { this.configuration.PrintLogsToChat = b; this.configuration.Save(); }, this.configuration.PrintLogsToChat);
         Bind(this.view.MinimumVisibleLogLevel,

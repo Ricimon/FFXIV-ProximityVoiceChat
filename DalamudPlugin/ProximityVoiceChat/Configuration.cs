@@ -40,6 +40,7 @@ namespace ProximityVoiceChat
 
         public bool PlayRoomJoinAndLeaveSounds { get; set; } = true;
         public bool KeybindsRequireGameFocus { get; set; }
+        public bool ShowInitialsInPrivateRooms { get; set; }
         public bool PrintLogsToChat { get; set; }
 
         public int MinimumVisibleLogLevel { get; set; } = LogLevel.Info.Ordinal;

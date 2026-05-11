@@ -36,6 +36,7 @@ public class ConfigWindow
 
     public IReactiveProperty<bool> PlayRoomJoinAndLeaveSounds { get; } = new ReactiveProperty<bool>();
     public IReactiveProperty<bool> KeybindsRequireGameFocus { get; } = new ReactiveProperty<bool>();
+    public IReactiveProperty<bool> ShowInitialsInPrivateRooms { get; } = new ReactiveProperty<bool>();
     public IReactiveProperty<bool> PrintLogsToChat { get; } = new ReactiveProperty<bool>();
     public IReactiveProperty<int> MinimumVisibleLogLevel { get; } = new ReactiveProperty<int>();
 
@@ -335,6 +336,12 @@ public class ConfigWindow
         if (ImGui.Checkbox("Keybinds require game focus", ref keybindsRequireGameFocus))
         {
             this.KeybindsRequireGameFocus.Value = keybindsRequireGameFocus;
+        }
+
+        var showInitialsInPrivateRooms = this.ShowInitialsInPrivateRooms.Value;
+        if (ImGui.Checkbox("Show initials in private rooms", ref showInitialsInPrivateRooms))
+        {
+            this.ShowInitialsInPrivateRooms.Value = showInitialsInPrivateRooms;
         }
 
         var printLogsToChat = this.PrintLogsToChat.Value;

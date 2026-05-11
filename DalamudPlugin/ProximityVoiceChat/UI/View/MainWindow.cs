@@ -472,7 +472,15 @@ public sealed class MainWindow : Window, IPluginUIView, IDisposable
             ImGui.SetCursorScreenPos(pos);
 
             // Player Label
-            var playerLabel = new StringBuilder(playerName);
+            var playerLabel = new StringBuilder();
+            if (this.voiceRoomManager.InPublicRoom || this.configuration.ShowInitialsInPrivateRooms)
+            {
+                playerLabel.Append(Utils.ConvertToInitialsName(playerName));
+            }
+            else
+            {
+                playerLabel.Append(playerName);
+            }
             if (index > 0 && this.voiceRoomManager.TrackedPlayers.TryGetValue(playerName, out var tp))
             {
                 playerLabel.Append(" (");

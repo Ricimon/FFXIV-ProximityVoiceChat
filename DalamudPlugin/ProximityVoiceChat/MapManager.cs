@@ -1,4 +1,5 @@
-﻿using FFXIVClientStructs.FFXIV.Client.Game;
+﻿using Dalamud.Plugin.Services;
+using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using ProximityVoiceChat.Extensions;
 using ProximityVoiceChat.Log;
@@ -17,18 +18,24 @@ public sealed class MapManager : IDisposable
     private readonly DalamudServices dalamud;
     private readonly ILogger logger;
 
+    private uint currentWorld;
+
     public MapManager(DalamudServices dalamud, ILogger logger)
     {
         this.dalamud = dalamud;
         this.logger = logger;
 
-        this.dalamud.ClientState.TerritoryChanged += OnTerritoryChanged;
-        OnTerritoryChanged(this.dalamud.ClientState.TerritoryType);
+        this.dalamud.ClientState.TerritoryChanged += OnLocationChanged;
+        this.dalamud.ClientState.InstanceChanged += OnLocationChanged;
+        this.dalamud.Framework.Update += OnFrameworkUpdate;
+        OnLocationChanged(this.dalamud.ClientState.TerritoryType);
     }
 
     public void Dispose()
     {
-        this.dalamud.ClientState.TerritoryChanged -= OnTerritoryChanged;
+        this.dalamud.ClientState.TerritoryChanged -= OnLocationChanged;
+        this.dalamud.ClientState.InstanceChanged -= OnLocationChanged;
+        this.dalamud.Framework.Update -= OnFrameworkUpdate;
     }
 
     public unsafe bool InSharedWorldMap()
@@ -138,8 +145,22 @@ public sealed class MapManager : IDisposable
         return s.ToString();
     }
 
-    private void OnTerritoryChanged(uint obj)
+    private void OnLocationChanged(uint obj)
     {
         OnMapChanged?.Invoke();
+    }
+
+    private void OnFrameworkUpdate(IFramework framework)
+    {
+        var world = dalamud.PlayerState.CurrentWorld;
+        if (world.IsValid)
+        {
+            var worldId = world.Value.RowId;
+            if (worldId != currentWorld)
+            {
+                OnLocationChanged(0);
+            }
+            currentWorld = worldId;
+        }
     }
 }

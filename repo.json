@@ -47,19 +47,19 @@
         "Description": "Augments existing raids with custom mechanics just for fun.",
         "Punchline": "Custom raid mechanics",
         "InternalName": "RaidsRewritten",
-        "AssemblyVersion": "1.2.0.0",
-        "TestingAssemblyVersion": "1.2.0.0",
+        "AssemblyVersion": "1.2.1.0",
+        "TestingAssemblyVersion": "1.2.1.0",
         "RepoUrl": "https://github.com/Ricimon/FFXIV-RaidsRewritten",
         "IconUrl": "https://raw.githubusercontent.com/Ricimon/FFXIV-RaidsRewritten/main/images/icon.png",
         "ApplicableVersion": "any",
         "DalamudApiLevel": 15,
         "IsHide": "False",
         "IsTestingExclusive": "False",
-        "LastUpdate": 1777684204,
+        "LastUpdate": 1778650130,
         "DownloadCount": 0,
-        "DownloadLinkInstall": "https://github.com/Ricimon/FFXIV-RaidsRewritten/releases/download/v1.2.0/RaidsRewritten_v1.2.0.zip",
-        "DownloadLinkTesting": "https://github.com/Ricimon/FFXIV-RaidsRewritten/releases/download/v1.2.0/RaidsRewritten_v1.2.0.zip",
-        "DownloadLinkUpdate": "https://github.com/Ricimon/FFXIV-RaidsRewritten/releases/download/v1.2.0/RaidsRewritten_v1.2.0.zip",
-        "Changelog": "API 15 update"
+        "DownloadLinkInstall": "https://github.com/Ricimon/FFXIV-RaidsRewritten/releases/download/v1.2.1/RaidsRewritten_v1.2.1.zip",
+        "DownloadLinkTesting": "https://github.com/Ricimon/FFXIV-RaidsRewritten/releases/download/v1.2.1/RaidsRewritten_v1.2.1.zip",
+        "DownloadLinkUpdate": "https://github.com/Ricimon/FFXIV-RaidsRewritten/releases/download/v1.2.1/RaidsRewritten_v1.2.1.zip",
+        "Changelog": "Bugfix hook signature and lightning corridor"
     }
 ]

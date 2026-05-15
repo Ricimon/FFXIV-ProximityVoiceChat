@@ -126,7 +126,7 @@ public sealed class AudioDeviceController : IAudioDeviceController, IDisposable
     private const int BitsPerSample = 16;
     private const int FrameLength = 20; // 20 ms, for max compatibility
     private const int WaveOutDesiredLatency = 100;
-    private const int WaveOutNumberOfBuffers = 2;
+    private const int WaveOutNumberOfBuffers = 3;
 
     private readonly DalamudServices dalamud;
     private readonly Configuration configuration;
@@ -134,7 +134,6 @@ public sealed class AudioDeviceController : IAudioDeviceController, IDisposable
 
     private readonly WaveFormat waveFormat = new(rate: SampleRate, bits: BitsPerSample, channels: 1);
     private readonly Dictionary<string, PlaybackChannel> playbackChannels = [];
-    private readonly int maxPlaybackChannelBufferSize;
     private readonly BufferedWaveProvider micPlaybackWaveProvider;
     private readonly MonoToStereoSampleProvider micPlaybackVolumeProvider;
     private readonly MixingSampleProvider outputSampleProvider;
@@ -194,9 +193,6 @@ public sealed class AudioDeviceController : IAudioDeviceController, IDisposable
         this.deafen = configuration.Deafen;
         this.audioRecordingDeviceIndex = configuration.SelectedAudioInputDeviceIndex;
         this.audioPlaybackDeviceIndex = configuration.SelectedAudioOutputDeviceIndex;
-
-        // This is how buffer size is calculated in WaveOutEvent
-        this.maxPlaybackChannelBufferSize = this.waveFormat.ConvertLatencyToByteSize((WaveOutDesiredLatency + WaveOutNumberOfBuffers - 1) / WaveOutNumberOfBuffers) * WaveOutNumberOfBuffers;
 
         this.micPlaybackWaveProvider = new(this.waveFormat);
         this.micPlaybackVolumeProvider = new(this.micPlaybackWaveProvider.ToSampleProvider());

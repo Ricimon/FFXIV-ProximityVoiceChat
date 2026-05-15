@@ -3,13 +3,14 @@ import util from "util";
 import fs from "fs";
 import { setTimeout } from "timers/promises";
 import { Buffer } from "node:buffer";
+import { v4 as uuidv4 } from "uuid";
 import SignalingChannel from "./signaling-channel.js";
 import WebrtcManager from "./webrtc-manager.js";
 import dataChannelHandler from "./webrtc-handlers/data-channel-handler.js";
 
 const SIGNALING_SERVER_URL = process.env.SIGNALING_SERVER_URL || "http://localhost:3030";
 const TOKEN = process.env.TOKEN || "SIGNALING123";
-const PEER_ID = "testPeer1";
+const PEER_ID = "testPeer-" + uuidv4().substring(0, 8);
 const PEER_TYPE = "admin";
 const verbose = true;
 

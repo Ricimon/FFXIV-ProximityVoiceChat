@@ -10,8 +10,6 @@ using Dalamud.Interface;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
 using Dalamud.Interface.Windowing;
-using Dalamud.Plugin;
-using Dalamud.Plugin.Services;
 using Microsoft.MixedReality.WebRTC;
 using ProximityVoiceChat.Extensions;
 using ProximityVoiceChat.Input;
@@ -113,7 +111,7 @@ public sealed class MainWindow : Window, IPluginUIView, IDisposable
         var width = 350;
         ImGui.SetNextWindowSize(new Vector2(width, 400), ImGuiCond.FirstUseEver);
         ImGui.SetNextWindowSizeConstraints(new Vector2(width, 250), new Vector2(float.MaxValue, float.MaxValue));
-        if (ImGui.Begin(this.windowName, ref this.visible))
+        if (ImGui.Begin($"{this.windowName}###{PluginInitializer.Name}", ref this.visible))
         {
             DrawContents();
         }
@@ -318,8 +316,19 @@ public sealed class MainWindow : Window, IPluginUIView, IDisposable
         var indent = 10;
         ImGui.Indent(indent);
 
-        foreach (var (playerName, index) in this.voiceRoomManager.PlayersInVoiceRoom.Select((p, i) => (p, i)))
+        var anyPeerMenuPopupOpen = false;
+        for(var i = 1; i < this.voiceRoomManager.PlayersInVoiceRoom.Count(); i++)
         {
+            if (ImGui.IsPopupOpen($"peer-menu-{i}"))
+            {
+                anyPeerMenuPopupOpen = true;
+                break;
+            }
+        }
+
+        foreach (var (pn, index) in this.voiceRoomManager.PlayersInVoiceRoom.Select((p, i) => (p, i)))
+        {
+            var playerName = pn;
             Vector4 color = Vector4Colors.Red;
             string tooltip = "Connection Error";
             bool connected = false;
@@ -378,7 +387,7 @@ public sealed class MainWindow : Window, IPluginUIView, IDisposable
             var h = ImGui.GetTextLineHeightWithSpacing();
             var rowMin = new Vector2(ImGui.GetWindowPos().X, pos.Y);
             var rowMax = new Vector2(rowMin.X + ImGui.GetWindowWidth(), pos.Y + h);
-            if (ImGui.IsMouseHoveringRect(rowMin, rowMax))
+            if (!anyPeerMenuPopupOpen && ImGui.IsMouseHoveringRect(rowMin, rowMax))
             {
                 drawList.AddRectFilled(rowMin, rowMax, ImGui.ColorConvertFloat4ToU32(Vector4Colors.Gray));
                 if (ImGui.IsMouseReleased(ImGuiMouseButton.Left) || ImGui.IsMouseReleased(ImGuiMouseButton.Right))

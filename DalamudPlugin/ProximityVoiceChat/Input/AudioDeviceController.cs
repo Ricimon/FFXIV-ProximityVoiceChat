@@ -123,16 +123,16 @@ public sealed class AudioDeviceController : IAudioDeviceController, IDisposable
             this.lastAudioRecordingSourceData.Buffer.Any(b => b != default));
 
     private const int SampleRate = 48000; // RNNoise frequency
+    private const int BitsPerSample = 16;
     private const int FrameLength = 20; // 20 ms, for max compatibility
     private const int WaveOutDesiredLatency = 100;
-    private const int WaveOutNumberOfBuffers = 5;
-    private const int MinimumBufferClearIntervalMs = 5000;
+    private const int WaveOutNumberOfBuffers = 2;
 
     private readonly DalamudServices dalamud;
     private readonly Configuration configuration;
     private readonly ILogger logger;
 
-    private readonly WaveFormat waveFormat = new(rate: 48000, bits: 16, channels: 1);
+    private readonly WaveFormat waveFormat = new(rate: SampleRate, bits: BitsPerSample, channels: 1);
     private readonly Dictionary<string, PlaybackChannel> playbackChannels = [];
     private readonly int maxPlaybackChannelBufferSize;
     private readonly BufferedWaveProvider micPlaybackWaveProvider;
@@ -287,7 +287,7 @@ public sealed class AudioDeviceController : IAudioDeviceController, IDisposable
         var bfp = new BufferedWaveProvider(this.waveFormat)
         {
             DiscardOnBufferOverflow = true,
-            BufferLength = this.waveFormat.AverageBytesPerSecond * 1,
+            BufferLength = this.waveFormat.AverageBytesPerSecond * 5,
         };
         var mssp = new MonoToStereoSampleProvider(bfp.ToSampleProvider());
         this.outputSampleProvider.AddMixerInput(mssp);
@@ -318,19 +318,42 @@ public sealed class AudioDeviceController : IAudioDeviceController, IDisposable
         if (this.playbackChannels.TryGetValue(channelName, out var channel))
         {
             var now = Environment.TickCount;
-            // If the output device cannot read from the playback buffer as fast as it is filled,
-            // then the playback buffer can get filled and introduce audio latency.
-            // This can occur during high system load.
-            // To remove this latency, we ensure the playback buffer never goes above the expected buffer size,
-            // calculated from the intended output device latency and buffer count.
-            if (channel.BufferedWaveProvider.BufferedBytes + sample.BytesRecorded > this.maxPlaybackChannelBufferSize)
+            if (channel.LastSampleAddedTimestampMs > 0)
             {
-                // However, don't clear too often as this can cause audio "roboting"
-                var timeSinceLastBufferClear = now - channel.BufferClearedEventTimestampMs;
-                if (timeSinceLastBufferClear > MinimumBufferClearIntervalMs)
+                var delta = now - channel.LastSampleAddedTimestampMs;
+                if (delta > channel.GetHighestSampleTimestampDeltaMs(now))
                 {
-                    channel.BufferedWaveProvider.ClearBuffer();
-                    channel.BufferClearedEventTimestampMs = now;
+                    channel.SetHighestSampleTimestampDeltaMs(delta, now);
+                    //logger.Info("Newest highest sample delta is {0}ms", delta);
+                }
+
+                var millisecondsPerByte = 1000f / this.waveFormat.AverageBytesPerSecond;
+                var bufferedBytes = channel.BufferedWaveProvider.BufferedBytes;
+                // The reported buffer count includes bytes that are currently being played, so we need to remove these
+                // from the count
+                bufferedBytes -= WaveOutDesiredLatency * this.waveFormat.AverageBytesPerSecond / 1000;
+                //logger.Info("Buffered bytes: {0}", bufferedBytes);
+                var bufferedDurationMs = bufferedBytes * millisecondsPerByte;
+                var sampleDurationMs = sample.BytesRecorded * millisecondsPerByte;
+                var bufferDelta = Math.Max(WaveOutDesiredLatency, channel.GetHighestSampleTimestampDeltaMs(now));
+                if (bufferedDurationMs > 2 * bufferDelta - sampleDurationMs)
+                {
+                    // drop the sample, we can expect another sample to come in before our buffered sample runs out,
+                    // and dropping this sample allows the next sample's playback latency to reduce
+                    //logger.Info("Dropped sample");
+                    // Look for a zero crossing to drop at (otherwise audio popping/clicking may occur)
+                    for (var i = 0; i < sample.BytesRecorded - 1; i += 2)
+                    {
+                        if (sample.Buffer[i] == 0 &&
+                            sample.Buffer[i + 1] == 0)
+                        {
+                            var newSample = new WaveInEventArgs(sample.Buffer[..(i + 2)], i + 2);
+                            channel.BufferedWaveProvider.AddSamples(newSample.Buffer, 0, newSample.BytesRecorded);
+                            channel.LastSampleAdded = sample;
+                            channel.LastSampleAddedTimestampMs = now;
+                            return;
+                        }
+                    }
                 }
             }
             channel.BufferedWaveProvider.AddSamples(sample.Buffer, 0, sample.BytesRecorded);
@@ -391,12 +414,13 @@ public sealed class AudioDeviceController : IAudioDeviceController, IDisposable
         }
         foreach (var channel in this.playbackChannels)
         {
+            var v = volume;
             if (volume != 0.0f && this.configuration.PeerVolumes.TryGetValue(channel.Key, out var peerVolume))
             {
-                volume *= peerVolume;
+                v *= peerVolume;
             }
-            channel.Value.MonoToStereoSampleProvider.LeftVolume = volume;
-            channel.Value.MonoToStereoSampleProvider.RightVolume = volume;
+            channel.Value.MonoToStereoSampleProvider.LeftVolume = v;
+            channel.Value.MonoToStereoSampleProvider.RightVolume = v;
         }
     }
 

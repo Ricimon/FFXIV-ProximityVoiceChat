@@ -1,9 +1,8 @@
-﻿using Microsoft.MixedReality.WebRTC;
+﻿using System;
+using System.Collections.Generic;
+using Microsoft.MixedReality.WebRTC;
 using ProximityVoiceChat.Input;
 using ProximityVoiceChat.Log;
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace ProximityVoiceChat.WebRTC
 {
@@ -80,14 +79,11 @@ namespace ProximityVoiceChat.WebRTC
 
         private void OnMessage(byte[] obj)
         {
-            Task.Run(() =>
+            //this.logger.Trace("Received data from peer {0}: {1}", this.peerId!, obj);
+            if (AudioDeviceController.TryParseAudioSampleBytes(obj, out var sample))
             {
-                //this.logger.Trace("Received data from peer {0}: {1}", this.peerId!, obj);
-                if (AudioDeviceController.TryParseAudioSampleBytes(obj, out var sample))
-                {
-                    this.audioDeviceController.AddPlaybackSample(this.peerId!, sample!);
-                }
-            });
+                this.audioDeviceController.AddPlaybackSample(this.peerId!, sample!);
+            }
         }
 
         public interface IFactory

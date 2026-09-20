@@ -42,4 +42,4 @@ Please use the support Discord for idea and code contribution discussion.
 
 This plugin's voice servers are self-hosted and the development team is (mostly) one person, so any donations are well appreciated.
 
-[![ko-fi](https://www.ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/ricimon)
+[<img src="https://cdn.prod.website-files.com/5c14e387dab576fe667689cf/670f5a01c01ea9191809398c_support_me_on_kofi_blue.avif" height=40>](https://ko-fi.com/ricimon)
